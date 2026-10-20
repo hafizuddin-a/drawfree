@@ -136,12 +136,33 @@ describe('the editor', () => {
     render(<App />);
     selectFirstChar();
     const x = items()[0].x, id = items()[0].id;
-    fireEvent.keyDown(document.body, { key: 'ArrowRight' }); expect(items()[0].x).toBe(x + 4);
-    fireEvent.keyDown(document.body, { key: 'ArrowLeft', shiftKey: true }); expect(items()[0].x).toBe(x - 16);
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' }); expect(items()[0].x).toBe(x + 1);
+    fireEvent.keyDown(document.body, { key: 'ArrowLeft', shiftKey: true }); expect(items()[0].x).toBe(x - 9);
+    fireEvent.keyDown(document.body, { key: 'ArrowDown' }); expect(items()[0].y).toBe(300 + 1);
     fireEvent.keyDown(document.body, { key: 'f' }); expect(items()[0].flip).toBe(true);
     fireEvent.keyDown(document.body, { key: 'Escape' }); expect(st().sel).toBeNull();
     st().select(id); fireEvent.keyDown(document.body, { key: 'Delete' });
     expect(items().some(i => i.id === id)).toBe(false);
+  });
+
+  it('keyboard: + and - scale, Ctrl+D duplicates, Alt+] brings to front, within limits', () => {
+    render(<App />);
+    selectFirstChar();
+    const id = items()[0].id, s0 = items()[0].s;
+    fireEvent.keyDown(document.body, { key: '+' }); expect(items()[0].s).toBeCloseTo(s0 * 1.05, 5);
+    fireEvent.keyDown(document.body, { key: '=' }); expect(items()[0].s).toBeCloseTo(s0 * 1.05 * 1.05, 5);
+    fireEvent.keyDown(document.body, { key: '-' }); fireEvent.keyDown(document.body, { key: '-' }); expect(items()[0].s).toBeCloseTo(s0, 5);
+    for (let i = 0; i < 80; i++) fireEvent.keyDown(document.body, { key: '+' });
+    expect(items()[0].s).toBe(3);                                            // the same ceiling as dragging a corner
+    const steps = st().past.length; fireEvent.keyDown(document.body, { key: '+' }); expect(st().past).toHaveLength(steps);   // no undo step when nothing changes
+    for (let i = 0; i < 120; i++) fireEvent.keyDown(document.body, { key: '-' });
+    expect(items()[0].s).toBe(0.3);
+    const dup = new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => { window.dispatchEvent(dup); });
+    expect(dup.defaultPrevented).toBe(true); expect(items()).toHaveLength(5); expect(st().sel).toBe(items()[4].id);
+    st().select(id);
+    fireEvent.keyDown(document.body, { code: 'BracketRight', key: ']', altKey: true });
+    expect(items().at(-1)?.id).toBe(id); expect(items()[0].r).toBe(0);      // brought forward, and not rotated
   });
 
   it('typing in a field never triggers shortcuts', () => {

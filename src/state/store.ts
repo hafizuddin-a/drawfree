@@ -51,6 +51,8 @@ export interface EditorState extends HistorySlice {
   act: (a: ItemAction) => void;
   nudge: (dx: number, dy: number) => void;
   rotateBy: (deg: number) => void;
+  /** multiplies the selected item's scale, within the same limits as dragging a corner (0.3 to 3) */
+  scaleBy: (factor: number) => void;
   resetRotation: () => void;
   setScene: (id: string) => void;
   setBg: (color: string) => void;
@@ -188,6 +190,13 @@ export const useEditor = create<EditorState>()((set, get) => {
       const it = selectedItem(get()); if (!it) return;
       h.snap();
       set(s => ({ frames: editItem(s, it.id, i => ({ ...i, r: (i.r || 0) + deg })) }));
+    },
+    scaleBy: factor => {
+      const it = selectedItem(get()); if (!it) return;
+      const s = Math.max(0.3, Math.min(3, it.s * factor));
+      if (s === it.s) return;
+      h.snap();
+      set(st => ({ frames: editItem(st, it.id, i => ({ ...i, s })) }));
     },
     resetRotation: () => {
       const it = selectedItem(get()); if (!it) return;
