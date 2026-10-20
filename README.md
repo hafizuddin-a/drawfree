@@ -45,3 +45,4 @@ Open this folder in Claude Code. `CLAUDE.md` describes the architecture, the par
 - **Export** (top bar) downloads the current frame as PNG (1x, 2x, 3x, optional transparent background) or SVG.
 - **Save** writes `<project-name>.drawfree.json`; **Open**, Ctrl/Cmd+O, or dropping a file on the page loads it. Open is one undo step.
 - The project also autosaves in the browser (localStorage). If storage is blocked the app says so and keeps working.
+
