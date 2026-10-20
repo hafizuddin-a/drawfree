@@ -59,6 +59,8 @@ export interface EditorState extends HistorySlice {
   addFrame: () => void;
   dupFrame: () => void;
   delFrame: () => void;
+  /** moves a frame to a new position; the current frame stays current and the move is one undo step */
+  moveFrame: (from: number, to: number) => void;
 
   loadProject: (p: ProjectState) => void;
   reset: () => void;
@@ -216,6 +218,18 @@ export const useEditor = create<EditorState>()((set, get) => {
       if (get().frames.length < 2) return;
       h.snap();
       set(s => ({ frames: s.frames.filter((_, i) => i !== s.fi), fi: Math.max(0, s.fi - 1), sel: null }));
+    },
+
+    moveFrame: (from, to) => {
+      const n = get().frames.length;
+      if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || from >= n || to < 0 || to >= n || from === to) return;
+      h.snap();
+      set(s => {
+        const currentId = currentFrame(s).id, frames = [...s.frames];
+        frames.splice(to, 0, ...frames.splice(from, 1));
+        return { frames, fi: frames.findIndex(f => f.id === currentId) };
+      });
+      get().showToast(`Frame moved to position ${to + 1}`);
     },
 
     loadProject: p => {

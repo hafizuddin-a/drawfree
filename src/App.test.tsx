@@ -3,6 +3,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import * as frameModule from './export/frame';
 import { resetEditorStore, currentFrame, selectedItem, useEditor } from './state/store';
 import type { Character, Item } from './types';
 
@@ -235,7 +236,7 @@ describe('export', () => {
     render(<App />);
     screen.getByRole('button', { name: 'Export' }).focus();                  // a real click or Enter focuses the opener
     click('Export');
-    const dialog = screen.getByRole('dialog', { name: /Export Frame 1/ });
+    const dialog = screen.getByRole('dialog', { name: 'Export' });
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: /Download PNG/ }));
     expect((within(dialog).getByRole('group', { name: 'PNG size' }) as HTMLFieldSetElement).disabled).toBe(false);
     fireEvent.keyDown(dialog, { key: 'Escape' });
@@ -347,5 +348,184 @@ describe('projects: save and open', () => {
     fireEvent.change(name, { target: { value: '' } });
     expect(name.value).toBe(''); expect(st().name).toBe('Untitled storyboard');
     fireEvent.blur(name); expect(name.value).toBe('Untitled storyboard');
+  });
+});
+
+describe('reordering frames', () => {
+  const notes = () => st().frames.map(f => f.note);
+  const three = () => { st().setNote('A'); st().addFrame(); st().setNote('B'); st().addFrame(); st().setNote('C'); st().selectFrame(0); };
+  const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('[data-frame-id]')];
+
+  it('the move buttons reorder the current frame and stop at the ends', () => {
+    three(); render(<App />);
+    const earlier = screen.getByRole('button', { name: 'Move frame earlier' }) as HTMLButtonElement, later = screen.getByRole('button', { name: 'Move frame later' }) as HTMLButtonElement;
+    expect(earlier.disabled).toBe(true);
+    fireEvent.click(later); expect(notes()).toEqual(['B', 'A', 'C']); expect(st().fi).toBe(1);
+    fireEvent.click(later); expect(notes()).toEqual(['B', 'C', 'A']); expect(later.disabled).toBe(true);
+    fireEvent.click(earlier); expect(notes()).toEqual(['B', 'A', 'C']);
+    click('Undo'); expect(notes()).toEqual(['B', 'C', 'A']);
+    expect(screen.getByRole('status').textContent).toMatch(/Frame moved/);
+  });
+
+  it('Alt and an arrow key move the focused frame, and focus stays on it', async () => {
+    three(); render(<App />);
+    const first = buttons()[0];
+    first.focus();
+    fireEvent.keyDown(first, { key: 'ArrowRight', altKey: true });
+    expect(notes()).toEqual(['B', 'A', 'C']);
+    await waitFor(() => expect((document.activeElement as HTMLElement).dataset.frameId).toBe(st().frames[1].id));
+    fireEvent.keyDown(document.activeElement as Element, { key: 'ArrowLeft', altKey: true });
+    expect(notes()).toEqual(['A', 'B', 'C']);
+    fireEvent.keyDown(buttons()[0], { key: 'ArrowLeft', altKey: true });          // already first: nothing happens
+    expect(notes()).toEqual(['A', 'B', 'C']);
+    fireEvent.keyDown(buttons()[0], { key: 'ArrowRight' });                       // without Alt, arrows keep their normal meaning
+    expect(notes()).toEqual(['A', 'B', 'C']);
+  });
+
+  describe('dragging', () => {
+    // lay the three thumbnails out side by side, 140px apart
+    const layout = () => vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const i = buttons().indexOf(this as HTMLButtonElement), x = i < 0 ? 0 : i * 140;
+      return { x, y: 0, left: x, top: 0, width: 128, height: 72, right: x + 128, bottom: 72, toJSON: () => ({}) };
+    });
+    const drag = (from: number, toX: number, type = 'mouse') => {
+      const el = buttons()[from];
+      act(() => { const d = new MouseEvent('pointerdown', { bubbles: true, clientX: from * 140 + 60, clientY: 30 }); Object.defineProperty(d, 'pointerType', { value: type }); el.dispatchEvent(d); });
+      pointer(window, 'pointermove', from * 140 + 70); pointer(window, 'pointermove', toX); pointer(window, 'pointerup', toX);
+    };
+
+    it('drags a frame to a new place, with one undo step, and the click after the drag does not select', async () => {
+      three(); layout(); render(<App />);
+      const steps = st().past.length;
+      drag(0, 2 * 140 + 100);                                                   // past the middle of frame 3
+      expect(notes()).toEqual(['B', 'C', 'A']); expect(st().past).toHaveLength(steps + 1);
+      expect(st().fi).toBe(2);                                                  // the moved frame was current, and stays current
+      fireEvent.click(buttons()[1]);                                            // the click that follows the drag: ignored
+      expect(st().fi).toBe(2);
+      await new Promise(r => setTimeout(r, 5));
+      fireEvent.click(buttons()[1]); expect(st().fi).toBe(1);                   // a later click selects as usual
+      click('Undo'); expect(notes()).toEqual(['A', 'B', 'C']);                  // the whole drag was one step
+    });
+    it('dragging to the same place, or only a few pixels, changes nothing', () => {
+      three(); layout(); render(<App />);
+      drag(1, 1 * 140 + 60);
+      drag(2, 2 * 140 + 64);
+      expect(notes()).toEqual(['A', 'B', 'C']);
+    });
+    it('touch drags are left to the strip to scroll', () => {
+      three(); layout(); render(<App />);
+      drag(0, 2 * 140 + 100, 'touch');
+      expect(notes()).toEqual(['A', 'B', 'C']);
+    });
+    it('can drag backwards', () => {
+      three(); layout(); render(<App />);
+      drag(2, 10);
+      expect(notes()).toEqual(['C', 'A', 'B']);
+    });
+    it('shows where the frame will land while dragging', () => {
+      three(); layout(); render(<App />);
+      const el = buttons()[0];
+      act(() => { const d = new MouseEvent('pointerdown', { bubbles: true, clientX: 60, clientY: 30 }); Object.defineProperty(d, 'pointerType', { value: 'mouse' }); el.dispatchEvent(d); });
+      pointer(window, 'pointermove', 80); pointer(window, 'pointermove', 2 * 140 + 100);
+      expect(buttons()[0].className).toMatch(/dragging/); expect(buttons()[2].className).toMatch(/after/);
+      pointer(window, 'pointerup', 2 * 140 + 100);
+      expect(buttons().some(b => /dragging|after|before/.test(b.className))).toBe(false);
+    });
+  });
+});
+
+describe('export: whole board', () => {
+  const calls: unknown[][] = [];
+  const mockBuild = (impl?: (...a: unknown[]) => Promise<unknown>) => vi.spyOn(frameModule, 'buildBoardExport').mockImplementation(async (...a: unknown[]) => {
+    calls.push(a);
+    if (impl) return impl(...a) as never;
+    return { blob: new Blob(['x'], { type: 'application/pdf' }), name: 'untitled-storyboard.pdf' };
+  });
+  beforeEach(() => { calls.length = 0; });
+  const openBoard = () => { click('Export'); fireEvent.click(screen.getByRole('radio', { name: /Whole board/ })); };
+
+  it('the scope picker shows the frame number and the frame count', () => {
+    st().addFrame(); st().selectFrame(1);
+    render(<App />); click('Export');
+    expect(screen.getByRole('radio', { name: /This frame\s+Frame 2/ })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Whole board\s+2 frames/ })).toBeTruthy();
+  });
+
+  it('downloads the board as a PDF with the chosen page options', async () => {
+    mockBuild(); render(<App />); openBoard();
+    expect(screen.getByRole('radio', { name: 'PDF' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Letter' })); fireEvent.click(screen.getByRole('radio', { name: 'Portrait' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Layout' }), { target: { value: 'three' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Include notes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(downloads).toHaveLength(1));
+    expect(downloads[0].name).toBe('untitled-storyboard.pdf');
+    expect(calls[0][2]).toMatchObject({ fmt: 'pdf', pdf: { size: 'letter', orientation: 'portrait', layout: 'three', notes: false } });
+    expect(calls[0][0]).toBe(st().frames); expect(calls[0][1]).toBe('Untitled storyboard');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('downloads the board as a PNG strip with columns, width and notes', async () => {
+    mockBuild(async () => ({ blob: new Blob(['x'], { type: 'image/png' }), name: 'untitled-storyboard-board.png' }));
+    render(<App />); openBoard();
+    fireEvent.click(screen.getByRole('radio', { name: 'PNG strip' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Frames per row' }), { target: { value: '3' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Frame width' }), { target: { value: '960' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Download PNG strip' }));
+    await waitFor(() => expect(downloads).toHaveLength(1));
+    expect(downloads[0].name).toBe('untitled-storyboard-board.png');
+    expect(calls[0][2]).toMatchObject({ fmt: 'png', strip: { cols: 3, frameW: 960, notes: true } });
+  });
+
+  it('shows progress while rendering and a notice afterwards', async () => {
+    let report: ((d: number, t: number) => void) | undefined, finish: (() => void) | undefined;
+    mockBuild((...a) => new Promise(res => { report = a[3] as typeof report; finish = () => res({ blob: new Blob(['x']), name: 'b.pdf', notice: '3 characters in the notes can\'t be shown in a PDF and became "?".' }); }));
+    render(<App />); openBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(report).toBeDefined());
+    act(() => { report?.(2, 5); });
+    expect(screen.getAllByRole('status').some(s => s.textContent === 'Rendering frame 2 of 5…')).toBe(true);
+    expect((screen.getByRole('button', { name: 'Download PDF' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    await act(async () => { finish?.(); });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getAllByRole('status').some(s => /Downloaded b\.pdf\. 3 characters/.test(s.textContent ?? ''))).toBe(true);
+  });
+
+  it('Cancel stops the export and nothing is downloaded', async () => {
+    let signal: AbortSignal | undefined;
+    mockBuild((...a) => new Promise(() => { signal = a[4] as AbortSignal; }));
+    render(<App />); openBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(signal).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(signal?.aborted).toBe(true); expect(screen.queryByRole('dialog')).toBeNull(); expect(downloads).toHaveLength(0);
+  });
+
+  it('shows the reason when the export fails, and lets you try again', async () => {
+    mockBuild(async () => { throw new Error('That many frames will not fit in one image.'); });
+    render(<App />); openBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(screen.getAllByRole('status').some(s => /will not fit/.test(s.textContent ?? ''))).toBe(true));
+    expect((screen.getByRole('button', { name: 'Download PDF' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByRole('dialog')).toBeTruthy(); expect(downloads).toHaveLength(0);
+  });
+
+  it('remembers the scope and board options for next time', () => {
+    mockBuild(); const { unmount } = render(<App />); openBoard();
+    fireEvent.click(screen.getByRole('radio', { name: 'PNG strip' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Frames per row' }), { target: { value: '4' } });
+    unmount(); render(<App />); click('Export');
+    expect((screen.getByRole('radio', { name: /Whole board/ }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('radio', { name: 'PNG strip' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('combobox', { name: 'Frames per row' }) as HTMLSelectElement).value).toBe('4');
+  });
+
+  it('frame exports still work from the same dialog', async () => {
+    render(<App />); click('Export');
+    fireEvent.click(screen.getByRole('radio', { name: 'SVG' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Download SVG' }));
+    await waitFor(() => expect(downloads).toHaveLength(1));
+    expect(downloads[0].name).toBe('untitled-storyboard-frame-1.svg');
   });
 });
