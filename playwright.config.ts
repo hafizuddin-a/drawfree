@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/* Real-browser tests: Chromium, WebKit (Safari's engine) and a phone-sized touch viewport.
+/* Real-browser tests: Chromium, WebKit (Safari's engine), a phone-sized touch viewport and a tablet (iPad, WebKit).
    They run against the production build served by `vite preview`. */
 export default defineConfig({
   testDir: 'e2e',
@@ -18,6 +18,7 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-    { name: 'mobile', use: { ...devices['Pixel 7'] } }
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+    { name: 'tablet', use: { ...devices['iPad (gen 7)'] } }
   ]
 });

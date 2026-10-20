@@ -85,7 +85,8 @@ export const Stage = forwardRef<SVGSVGElement, Props>(function Stage({ onPointer
   const svg = useRef<SVGSVGElement | null>(null);
   const attach = (el: SVGSVGElement | null) => { svg.current = el; if (typeof ref === 'function') ref(el); else if (ref) ref.current = el; };
   const items = useEditor(s => currentFrame(s).items), bgColor = useEditor(s => currentFrame(s).bg), scene = useEditor(s => currentFrame(s).scene);
-  const sel = useEditor(s => s.sel), pose = useEditor(s => s.pose);
+  const sel = useEditor(s => s.sel), extra = useEditor(s => s.extra), pose = useEditor(s => s.pose);
+  const picked = new Set(sel ? [sel, ...extra] : []);
   const view = useEditor(s => s.view), px = useStagePx(svg);
   // the background is redrawn only when it changes, not on every drag
   const bg = useMemo(() => frameBG({ bg: bgColor, scene }, true), [bgColor, scene]);
@@ -93,7 +94,7 @@ export const Stage = forwardRef<SVGSVGElement, Props>(function Stage({ onPointer
     // biome-ignore lint/a11y/useSemanticElements: the stage is an SVG, which cannot be a fieldset. role=group (not img) because its items are focusable.
     <svg id="stage" ref={attach} viewBox={viewBox(view)} preserveAspectRatio="xMidYMid meet" role="group" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
       <g {...svgMarkup(bg)} />
-      {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel} selected={it.id === sel} label={labelOf(items, i)} px={px} />)}
+      {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel && !extra.length} selected={picked.has(it.id)} label={labelOf(items, i)} px={px} />)}
     </svg>
   );
 });

@@ -2,6 +2,8 @@
 .board { position: absolute; inset: 0; }
 .overlay { position: absolute; inset: 0; pointer-events: none; }
 .selbox { position: absolute; border: 2px solid var(--accent); }
+.group { border-style: dashed; }
+.marquee { position: absolute; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); pointer-events: none; }
 .corner { position: absolute; width: 16px; height: 16px; margin: -8px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); pointer-events: auto; touch-action: none; }
 .corner::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
 @media (pointer: coarse) { .corner::after { inset: -14px; } }   /* 44px touch target */

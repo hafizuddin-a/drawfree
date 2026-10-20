@@ -48,6 +48,7 @@ Open this folder in Claude Code. `CLAUDE.md` describes the architecture, the par
 
 - **Export** (top bar) downloads the current frame as PNG (1x, 2x, 3x, optional transparent background) or SVG.
 - **Export, whole board** makes a PDF (A4 or Letter, one frame per page or a contact sheet) or a PNG strip of every frame with its note. Drag frames in the strip to reorder them, or use the arrow buttons.
+- **Select several**: Shift-click, drag a rectangle on the empty stage, or Ctrl/Cmd+A; then move, flip, duplicate, delete or restyle them together.
 - **Keyboard**: arrows nudge (Shift for 10 px), `+` and `-` scale, `[` and `]` rotate, `F` flips, Ctrl/Cmd+D duplicates, Alt+`]` brings to front, Delete removes, Esc deselects, Ctrl/Cmd+Z undoes, `/` searches.
 - **Zoom and pan**: Ctrl/Cmd and the wheel (or a pinch) zoom, Space and drag pan, `0` resets, and there are zoom buttons on the stage.
 - **Save** writes `<project-name>.drawfree.json`; **Open**, Ctrl/Cmd+O, or dropping a file on the page loads it. Open is one undo step.

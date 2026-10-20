@@ -4,10 +4,12 @@
 import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { LIMBS, RAD } from '../rig/geometry';
 import { ik } from '../rig/ik';
-import { currentFrame, selectedItem, useEditor } from '../state/store';
+import { currentFrame, selectedIds, selectedItem, useEditor } from '../state/store';
+import type { Placement } from '../types';
 
 type Drag =
-  | { k: 'move'; id: string; dx: number; dy: number; x0: number; y0: number; snapped: boolean }
+  | { k: 'move'; id: string; ids: string[]; starts: Record<string, { x: number; y: number }>; px: number; py: number; x0: number; y0: number; snapped: boolean }
+  | { k: 'marquee'; x0: number; y0: number; additive: boolean; base: string[]; started: boolean }
   | { k: 'joint'; id: string; limb: 'aL' | 'aR' | 'lL' | 'lR'; snapped: boolean }
   | { k: 'rotate'; id: string; cx: number; cy: number; a0: number; r0: number; snapped: boolean }
   | { k: 'scale'; id: string; cx: number; cy: number; d0: number; s0: number; snapped: boolean }
@@ -43,6 +45,17 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
           return;
         }
       }
+      if (d?.k === 'marquee') {
+        if (!d.started) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return; d.started = true; }
+        const st = useEditor.getState(), l = Math.min(d.x0, e.clientX), r = Math.max(d.x0, e.clientX), t = Math.min(d.y0, e.clientY), b = Math.max(d.y0, e.clientY);
+        st.setMarquee({ x0: d.x0, y0: d.y0, x1: e.clientX, y1: e.clientY });
+        const hit = [...(stage?.querySelectorAll<SVGGElement>('.item') ?? [])].filter(el => {
+          const q = (el.querySelector('.figure') ?? el).getBoundingClientRect();
+          return q.right >= l && q.left <= r && q.bottom >= t && q.top <= b;
+        }).map(el => el.dataset.id ?? '');
+        st.selectMany(d.additive ? [...new Set([...d.base, ...hit])] : hit);
+        return;
+      }
       if (d?.k === 'pan') {
         if (stage) useEditor.getState().panTo(d.cx0 - (e.clientX - d.x0) * d.upp, d.cy0 - (e.clientY - d.y0) * d.upp);
         return;
@@ -56,8 +69,9 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
       }
       const st = useEditor.getState();
       if (d.k === 'move') {
-        const p = toLocal(stage.getScreenCTM(), e.clientX, e.clientY);
-        st.patchItem(d.id, { x: clamp(p.x + d.dx, -40, 1000), y: clamp(p.y + d.dy, -40, 700) });
+        const p = toLocal(stage.getScreenCTM(), e.clientX, e.clientY), patches: Record<string, Partial<Placement>> = {};
+        for (const id of d.ids) { const s0 = d.starts[id]; patches[id] = { x: clamp(s0.x + p.x - d.px, -40, 1000), y: clamp(s0.y + p.y - d.py, -40, 700) }; }
+        st.patchItems(patches);
       } else if (d.k === 'joint' && it.kind === 'char') {
         // inverse of the body's screen matrix: the joint lands on the pointer after flip, rotation and scale
         const body = stage.querySelector<SVGGElement>(`.item[data-id="${it.id}"] .body`);
@@ -77,6 +91,8 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
     const onUp = (e: PointerEvent) => {
       touches.current.delete(e.pointerId);
       if (touches.current.size < 2) pinch.current = null;
+      const d = drag.current;
+      if (d?.k === 'marquee') useEditor.getState().setMarquee(null);
       drag.current = null;
     };
     const isTyping = (t: EventTarget | null) => { const tag = ((t as HTMLElement)?.tagName || '').toLowerCase(); return tag === 'input' || tag === 'textarea' || tag === 'select'; };
@@ -104,16 +120,24 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
       drag.current = { k: 'pan', x0: e.clientX, y0: e.clientY, cx0: st.view.cx, cy0: st.view.cy, upp: 1 / a };
       return;
     }
-    if (!el || !stage) { if (st.sel) st.select(null); return; }
+    if (!el || !stage) {
+      // empty stage: a click deselects, a drag draws a marquee that selects what it touches (Shift adds to the selection)
+      if (!e.shiftKey && st.sel) st.select(null);
+      if (stage) drag.current = { k: 'marquee', x0: e.clientX, y0: e.clientY, additive: e.shiftKey, base: e.shiftKey ? selectedIds(st) : [], started: false };
+      return;
+    }
     const it = findItem(el.getAttribute('data-id') ?? '');
     if (!it) return;
     e.preventDefault();
     const limb = t.getAttribute('data-limb') as 'aL' | 'aR' | 'lL' | 'lR' | null;
     if (limb && t.classList.contains('bh')) { st.flipBend(it.id, limb); return; }   // elbow or knee dot: flip the bend
     if (limb && t.classList.contains('jh')) { drag.current = { k: 'joint', id: it.id, limb, snapped: false }; return; }
-    st.select(it.id);
+    if (e.shiftKey) { st.toggleSelect(it.id); return; }                          // Shift-click adds or removes it
+    if (!selectedIds(st).includes(it.id)) st.select(it.id);                      // an item already in the selection keeps the group together
+    const moving = new Set(selectedIds(useEditor.getState())), starts: Record<string, { x: number; y: number }> = {};
+    for (const i of currentFrame(useEditor.getState()).items) if (moving.has(i.id)) starts[i.id] = { x: i.x, y: i.y };
     const p = toLocal(stage.getScreenCTM(), e.clientX, e.clientY);
-    drag.current = { k: 'move', id: it.id, dx: it.x - p.x, dy: it.y - p.y, x0: e.clientX, y0: e.clientY, snapped: false };
+    drag.current = { k: 'move', id: it.id, ids: [...moving], starts, px: p.x, py: p.y, x0: e.clientX, y0: e.clientY, snapped: false };
   }, [stageRef]);
 
   /** pointer down on a selection-box corner (scale) or the round handle (rotate) */

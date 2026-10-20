@@ -6,7 +6,7 @@ import { CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, HATS, NECK, BOTTOMS, SHOES, 
 import { LIMBS } from '../rig/geometry';
 import { ik } from '../rig/ik';
 import { presetPose, rig } from '../rig/poses';
-import { newCharacter } from '../rig/renderCharacter';
+import { canFlip, newCharacter } from '../rig/renderCharacter';
 import { DEFAULT_NAME, cleanName, type ProjectState } from '../export/project';
 import { DEFAULT_VIEW, type Pt, type View, clampView, panBy as panView, zoomAt } from '../editor/view';
 import { historyActions, type HistorySlice } from './history';
@@ -21,8 +21,12 @@ export interface EditorState extends HistorySlice {
   aspect: Aspect;
   frames: Frame[];
   fi: number;
-  /** selected item id */
+  /** the primary selected item id (the last one clicked; the one the pose tools and the box handles work on) */
   sel: string | null;
+  /** the other selected items, when several are selected. Never contains `sel`. */
+  extra: string[];
+  /** a marquee being dragged, in page (client) pixels */
+  marquee: { x0: number; y0: number; x1: number; y1: number } | null;
   tab: TabId;
   q: string;
   /** pose handles are shown for the selected character */
@@ -33,6 +37,14 @@ export interface EditorState extends HistorySlice {
 
   showToast: (msg: string, ms?: number) => void;
   select: (id: string | null) => void;
+  /** adds the item to the selection, or removes it if it is already selected (Shift-click) */
+  toggleSelect: (id: string) => void;
+  /** selects exactly these items (the first becomes the primary one) */
+  selectMany: (ids: string[]) => void;
+  selectAll: () => void;
+  setMarquee: (m: { x0: number; y0: number; x1: number; y1: number } | null) => void;
+  /** moves several items at once: no snapshot, callers snap first */
+  patchItems: (patches: Record<string, Partial<Placement>>) => void;
   /** zooms about a frame point (default: the centre of the view) */
   zoomBy: (factor: number, at?: Pt) => void;
   panBy: (dx: number, dy: number) => void;
@@ -77,8 +89,15 @@ export interface EditorState extends HistorySlice {
 }
 
 /* ---------- selectors and helpers ---------- */
-type Selection = Pick<EditorState, 'frames' | 'fi' | 'sel'>;
+type Selection = Pick<EditorState, 'frames' | 'fi' | 'sel' | 'extra'>;
 export const currentFrame = (s: Pick<EditorState, 'frames' | 'fi'>): Frame => s.frames[s.fi];
+/** every selected id, the primary one first */
+export const selectedIds = (s: Pick<EditorState, 'sel' | 'extra'>): string[] => (s.sel ? [s.sel, ...s.extra] : []);
+/** every selected item, in z-order */
+export function selectedItems(s: Selection): Item[] {
+  const ids = new Set(selectedIds(s));
+  return ids.size ? currentFrame(s).items.filter(i => ids.has(i.id)) : [];
+}
 export const selectedItem = (s: Selection): Item | null => (s.sel ? currentFrame(s).items.find(i => i.id === s.sel) ?? null : null);
 /** the character the picker edits: the selected one, or the only one in the frame */
 export function charTarget(s: Selection): Character | null {
@@ -99,7 +118,7 @@ const mapChar = (it: Item, fn: (c: Character) => Character): Item => (it.kind ==
 let toastSeq = 0;
 
 const initialState = () => ({
-  name: DEFAULT_NAME, aspect: '16:9' as Aspect, frames: seedFrames(), fi: 0, sel: null as string | null,
+  name: DEFAULT_NAME, aspect: '16:9' as Aspect, frames: seedFrames(), fi: 0, sel: null as string | null, extra: [] as string[], marquee: null as EditorState['marquee'],
   tab: 'hair' as TabId, q: '', pose: false, toast: null as Toast | null, view: DEFAULT_VIEW, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
 });
 
@@ -109,13 +128,25 @@ export const useEditor = create<EditorState>()((set, get) => {
   const needChar = (): Character | null => {
     const c = charTarget(get());
     if (!c) { get().showToast('Click a character on the board first'); return null; }
-    if (get().sel !== c.id) set({ sel: c.id });
+    if (get().sel !== c.id) set({ sel: c.id, extra: [] });
     return c;
   };
+  /** edits every selected character, or the one the picker targets when none is selected */
   const editChar = (fn: (c: Character) => Character) => {
-    const c = needChar(); if (!c) return;
+    const chars = selectedItems(get()).filter((i): i is Character => i.kind === 'char');
+    const targets = chars.length ? chars : (() => { const c = needChar(); return c ? [c] : []; })();
+    if (!targets.length) return;
     h.snap();
-    set(s => ({ frames: editItem(s, c.id, it => mapChar(it, fn)) }));
+    const ids = new Set(targets.map(c => c.id));
+    set(s => ({ frames: editFrame(s, f => ({ ...f, items: f.items.map(it => (ids.has(it.id) ? mapChar(it, fn) : it)) })) }));
+  };
+  /** applies `fn` to every selected item as one undo step; `fn` may return the item unchanged. Returns false when nothing is selected. */
+  const editSelected = (fn: (it: Item) => Item): boolean => {
+    const ids = new Set(selectedIds(get()));
+    if (!ids.size) return false;
+    h.snap();
+    set(s => ({ frames: editFrame(s, f => ({ ...f, items: f.items.map(it => (ids.has(it.id) ? fn(it) : it)) })) }));
+    return true;
   };
 
   return {
@@ -123,7 +154,16 @@ export const useEditor = create<EditorState>()((set, get) => {
     ...h,
 
     showToast: (msg, ms = 2200) => set({ toast: { id: ++toastSeq, msg, ms } }),
-    select: id => set(s => (s.sel === id ? s : { sel: id })),
+    select: id => set(s => (s.sel === id && !s.extra.length ? s : { sel: id, extra: [] })),
+    toggleSelect: id => set(s => {
+      const ids = selectedIds(s);
+      if (ids.includes(id)) { const rest = ids.filter(i => i !== id); return { sel: rest[0] ?? null, extra: rest.slice(1) }; }
+      return s.sel ? { extra: [...s.extra, id] } : { sel: id, extra: [] };
+    }),
+    selectMany: ids => set({ sel: ids[0] ?? null, extra: ids.slice(1) }),
+    selectAll: () => { const ids = currentFrame(get()).items.map(i => i.id); set({ sel: ids[0] ?? null, extra: ids.slice(1) }); },
+    setMarquee: m => set({ marquee: m }),
+    patchItems: patches => set(s => ({ frames: editFrame(s, f => ({ ...f, items: f.items.map(it => (patches[it.id] ? { ...it, ...patches[it.id] } : it)) })) })),
     zoomBy: (factor, at) => set(s => ({ view: zoomAt(s.view, factor, at ?? { x: s.view.cx, y: s.view.cy }) })),
     panBy: (dx, dy) => set(s => ({ view: panView(s.view, dx, dy) })),
     panTo: (cx, cy) => set(s => ({ view: clampView({ ...s.view, cx, cy }) })),
@@ -157,13 +197,13 @@ export const useEditor = create<EditorState>()((set, get) => {
       const y = ({ bubble: 118, plant: 462, chair: 462, table: 462 } as Record<string, number>)[def.id] ?? 300;
       const it: Item = { id: newId(), kind: 'prop', prop: def.id, x: 480 + Math.round((Math.random() - 0.5) * 160), y, s: 1, r: 0, flip: false };
       if (def.text) it.text = def.text;
-      set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, it] })), sel: it.id }));
+      set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, it] })), sel: it.id, extra: [] }));
     },
     addChar: () => {
       h.snap();
       const n = currentFrame(get()).items.filter(i => i.kind === 'char').length;
       const c = newCharacter({ id: newId(), x: 240 + (n % 4) * 160, y: 300 });
-      set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, c] })), sel: c.id }));
+      set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, c] })), sel: c.id, extra: [] }));
     },
     shuffle: () => {
       let c = charTarget(get());
@@ -179,51 +219,40 @@ export const useEditor = create<EditorState>()((set, get) => {
         hat: Math.random() < 0.3 ? pickId(HATS) : 'none', neck: Math.random() < 0.3 ? pickId(NECK) : 'none'
       };
       const id = c.id;
-      set(s => ({ frames: editItem(s, id, it => mapChar(it, ch => ({ ...ch, ...look }))), sel: id }));
+      set(s => ({ frames: editItem(s, id, it => mapChar(it, ch => ({ ...ch, ...look }))), sel: id, extra: [] }));
     },
     act: a => {
-      const it = selectedItem(get()); if (!it) return;
-      if (a === 'pose') { set(s => (s.pose ? { pose: false } : { pose: true, tab: 'pose', q: '' })); return; }
+      if (!selectedItem(get())) return;
+      if (a === 'pose') {                                                      // posing works on one character: the primary selection
+        set(s => (s.pose ? { pose: false } : { pose: true, tab: 'pose', q: '' }));
+        return;
+      }
+      const picked = selectedItems(get()), ids = new Set(picked.map(i => i.id));
       h.snap();
-      const id = it.id;
-      if (a === 'flip') set(s => ({ frames: editItem(s, id, i => ({ ...i, flip: !i.flip })) }));
+      if (a === 'flip') set(s => ({ frames: editFrame(s, f => ({ ...f, items: f.items.map(i => (ids.has(i.id) && canFlip(i) ? { ...i, flip: !i.flip } : i)) })) }));
       else if (a === 'dup') {
-        const copy: Item = { ...structuredClone(it), id: newId(), x: it.x + 40 };
-        set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, copy] })), sel: copy.id }));
-      } else if (a === 'front') set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items.filter(i => i.id !== id), it] })) }));
-      else if (a === 'del') set(s => ({ frames: editFrame(s, f => ({ ...f, items: f.items.filter(i => i.id !== id) })), sel: null }));
+        const copies: Item[] = picked.map(it => ({ ...structuredClone(it), id: newId(), x: it.x + 40 }));
+        set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, ...copies] })), sel: copies[0].id, extra: copies.slice(1).map(c => c.id) }));
+      } else if (a === 'front') set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items.filter(i => !ids.has(i.id)), ...picked] })) }));
+      else if (a === 'del') set(s => ({ frames: editFrame(s, f => ({ ...f, items: f.items.filter(i => !ids.has(i.id)) })), sel: null, extra: [] }));
     },
-    nudge: (dx, dy) => {
-      const it = selectedItem(get()); if (!it) return;
-      h.snap();
-      set(s => ({ frames: editItem(s, it.id, i => ({ ...i, x: i.x + dx, y: i.y + dy })) }));
-    },
-    rotateBy: deg => {
-      const it = selectedItem(get()); if (!it) return;
-      h.snap();
-      set(s => ({ frames: editItem(s, it.id, i => ({ ...i, r: (i.r || 0) + deg })) }));
-    },
+    nudge: (dx, dy) => { editSelected(i => ({ ...i, x: i.x + dx, y: i.y + dy })); },
+    rotateBy: deg => { editSelected(i => ({ ...i, r: (i.r || 0) + deg })); },
     scaleBy: factor => {
-      const it = selectedItem(get()); if (!it) return;
-      const s = Math.max(0.3, Math.min(3, it.s * factor));
-      if (s === it.s) return;
-      h.snap();
-      set(st => ({ frames: editItem(st, it.id, i => ({ ...i, s })) }));
+      const picked = selectedItems(get());
+      if (!picked.some(i => Math.max(0.3, Math.min(3, i.s * factor)) !== i.s)) return;     // nothing would change: no undo step
+      editSelected(i => ({ ...i, s: Math.max(0.3, Math.min(3, i.s * factor)) }));
     },
-    resetRotation: () => {
-      const it = selectedItem(get()); if (!it) return;
-      h.snap();
-      set(s => ({ frames: editItem(s, it.id, i => ({ ...i, r: 0 })) }));
-    },
+    resetRotation: () => { editSelected(i => ({ ...i, r: 0 })); },
     setScene: id => { h.snap(); set(s => ({ frames: editFrame(s, f => ({ ...f, scene: id })) })); },
     setBg: color => { h.snap(); set(s => ({ frames: editFrame(s, f => ({ ...f, bg: color })) })); },
 
-    selectFrame: i => set({ fi: i, sel: null }),
+    selectFrame: i => set({ fi: i, sel: null, extra: [] }),
     addFrame: () => {
       h.snap();
       set(s => {
         const cur = currentFrame(s);
-        return { frames: [...s.frames, { id: newId(), bg: cur.bg, scene: cur.scene || 'none', note: '', items: [] }], fi: s.frames.length, sel: null };
+        return { frames: [...s.frames, { id: newId(), bg: cur.bg, scene: cur.scene || 'none', note: '', items: [] }], fi: s.frames.length, sel: null, extra: [] };
       });
     },
     dupFrame: () => {
@@ -232,13 +261,13 @@ export const useEditor = create<EditorState>()((set, get) => {
         const copy: Frame = structuredClone(currentFrame(s));
         copy.id = newId(); copy.items.forEach(i => { i.id = newId(); });
         const frames = [...s.frames]; frames.splice(s.fi + 1, 0, copy);
-        return { frames, fi: s.fi + 1, sel: null };
+        return { frames, fi: s.fi + 1, sel: null, extra: [] };
       });
     },
     delFrame: () => {
       if (get().frames.length < 2) return;
       h.snap();
-      set(s => ({ frames: s.frames.filter((_, i) => i !== s.fi), fi: Math.max(0, s.fi - 1), sel: null }));
+      set(s => ({ frames: s.frames.filter((_, i) => i !== s.fi), fi: Math.max(0, s.fi - 1), sel: null, extra: [] }));
     },
 
     moveFrame: (from, to) => {
@@ -255,11 +284,11 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     loadProject: p => {
       h.snap();
-      set({ frames: p.frames, fi: 0, sel: null, name: p.name, aspect: p.aspect, view: DEFAULT_VIEW });
+      set({ frames: p.frames, fi: 0, sel: null, extra: [], name: p.name, aspect: p.aspect, view: DEFAULT_VIEW });
     },
     reset: () => {
       h.snap();
-      set({ frames: seedFrames(), fi: 0, sel: null, name: DEFAULT_NAME, aspect: '16:9' });
+      set({ frames: seedFrames(), fi: 0, sel: null, extra: [], name: DEFAULT_NAME, aspect: '16:9' });
     }
   };
 });

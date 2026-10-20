@@ -21,9 +21,22 @@ interface Props {
 export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
   useEditor(s => s.view);   // re-measure when the view moves
   const it = useEditor(selectedItem), pose = useEditor(s => s.pose), resetRotation = useEditor(s => s.resetRotation);
+  const extra = useEditor(s => s.extra), marquee = useEditor(s => s.marquee);
+  const group = extra.length > 0;
   const [box, setBox] = useState<Measured | null>(null);
 
   const measure = useCallback(() => {
+    // several items selected: one upright box around all of them (their figures, not their shadows)
+    if (it && extra.length && stageRef.current && boardRef.current) {
+      const b = boardRef.current.getBoundingClientRect();
+      const rects = [it.id, ...extra].map(id => stageRef.current?.querySelector(`.item[data-id="${id}"] .figure`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
+      if (!rects.length) { setBox(prev => (prev === null ? prev : null)); return; }
+      const l = Math.min(...rects.map(r => r.left)) - b.left, t = Math.min(...rects.map(r => r.top)) - b.top;
+      const r = Math.max(...rects.map(q => q.right)) - b.left, bt = Math.max(...rects.map(q => q.bottom)) - b.top;
+      const next: Measured = { ...boxFromCorners([{ x: l, y: t }, { x: r, y: t }, { x: r, y: bt }, { x: l, y: bt }], PAD), bw: b.width, bh: b.height };
+      setBox(prev => (same(prev, next) ? prev : next));
+      return;
+    }
     const g = it && stageRef.current?.querySelector<SVGGElement>(`.item[data-id="${it.id}"] .body`);
     const board = boardRef.current, m = g?.getScreenCTM();
     if (!g || !board || !m) { setBox(b => (b === null ? b : null)); return; }
@@ -39,7 +52,7 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
       bw: b.width, bh: b.height
     };
     setBox(prev => (same(prev, next) ? prev : next));
-  }, [it, stageRef, boardRef]);
+  }, [it, extra, stageRef, boardRef]);
 
   // after every render, so the box follows drags, scaling and pose changes. setBox ignores unchanged boxes, so this cannot loop.
   useLayoutEffect(() => { measure(); });
@@ -51,7 +64,11 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     return () => ro.disconnect();
   }, [boardRef, measure]);
 
-  if (!it || !box) return <div className={styles.overlay} />;
+  const mq = marquee && boardRef.current ? (() => {
+    const b = boardRef.current.getBoundingClientRect();
+    return <div className={styles.marquee} style={{ left: Math.min(marquee.x0, marquee.x1) - b.left, top: Math.min(marquee.y0, marquee.y1) - b.top, width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }} />;
+  })() : null;
+  if (!it || !box) return <div className={styles.overlay}>{mq}</div>;
   // the toolbar sits beside the axis-aligned bounds of the turned box
   const { ax: x, ay: y, aw: w } = box;
   let tx = x + w + 12;
@@ -63,20 +80,21 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
   const line: CSSProperties | null = side === 'above' ? { left: '50%', top: -28 } : side === 'below' ? { left: '50%', top: '100%' } : null;
   return (
     <div className={styles.overlay}>
-      <div className={styles.selbox} style={{ left: f1(box.cx - box.w / 2), top: f1(box.cy - box.h / 2), width: f1(box.w), height: f1(box.h), transform: `rotate(${box.angle}deg)` }}>
+      {mq}
+      <div className={`${styles.selbox} ${group ? styles.group : ''}`} style={{ left: f1(box.cx - box.w / 2), top: f1(box.cy - box.h / 2), width: f1(box.w), height: f1(box.h), transform: `rotate(${box.angle}deg)` }}>
         {/* in Pose mode the corners would sit on top of raised hands, so scaling waits until Pose is turned off */}
-        {!pose && (['nw', 'ne', 'sw', 'se'] as const).map(c => (
+        {!pose && !group && (['nw', 'ne', 'sw', 'se'] as const).map(c => (
           <i key={c} role="presentation" className={styles.corner} data-c={c} style={{ top: c[0] === 'n' ? '0' : '100%', left: c[1] === 'w' ? '0' : '100%' }}
             onPointerDown={e => onHandleDown(e, 'scale')} />
         ))}
-        {line && <i className={styles.rotline} style={line} />}
+        {!group && line && <i className={styles.rotline} style={line} />}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only drag handle. The keyboard route is [ and ] (and double-click or the toolbar to reset). */}
-        <i role="presentation" className={styles.rot} style={handle} title="Rotate. Shift snaps to 15°, double-click resets. Keys: [ and ]"
+        {!group && <i role="presentation" className={styles.rot} style={handle} title="Rotate. Shift snaps to 15°, double-click resets. Keys: [ and ]"
           onPointerDown={e => onHandleDown(e, 'rotate')} onDoubleClick={resetRotation}>
           <Icon name="rotate" />
-        </i>
+        </i>}
       </div>
-      <Toolbar item={it} left={f1(tx)} top={f1(ty)} />
+      <Toolbar item={it} count={1 + extra.length} left={f1(tx)} top={f1(ty)} />
     </div>
   );
 }

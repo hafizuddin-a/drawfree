@@ -21,7 +21,8 @@ const stillThere = (frames: Frame[], fi: number, sel: string | null): string | n
 export function historyActions(set: StoreApi<EditorState>['setState'], get: StoreApi<EditorState>['getState']): Pick<HistorySlice, 'snap' | 'undo' | 'redo'> {
   const restore = (to: Snapshot, past: Snapshot[], future: Snapshot[]) => {
     const fi = Math.min(to.fi, to.frames.length - 1);
-    set({ frames: to.frames, fi, past, future, sel: stillThere(to.frames, fi, get().sel) });
+    const sel = stillThere(to.frames, fi, get().sel), extra = get().extra.filter(id => stillThere(to.frames, fi, id));
+    set({ frames: to.frames, fi, past, future, sel: sel ?? extra[0] ?? null, extra: sel ? extra : extra.slice(1) });
   };
   return {
     snap: () => {

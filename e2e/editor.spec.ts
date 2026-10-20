@@ -355,3 +355,93 @@ test.describe('the selection box turns with the item', () => {
     expect(numberIn(await transformOf(page), 'scale')).toBeGreaterThan(s0);
   });
 });
+
+test.describe('selecting several items', () => {
+  const figure = (page: import('@playwright/test').Page, i: number) => items(page).nth(i).locator('.figure');
+
+  test('Shift-click adds a second character, and dragging either one moves both as one undo step', async ({ page }) => {
+    await selectFirstChar(page);
+    await page.keyboard.down('Shift');
+    const second = await centre(figure(page, 1)); await page.mouse.click(second.x, second.y);
+    await page.keyboard.up('Shift');
+    await expect(page.getByRole('toolbar', { name: '2 items selected' })).toBeVisible();
+    const a0 = await box(figure(page, 0)), b0 = await box(figure(page, 1)), start = await centre(figure(page, 1));
+    await drag(page, start, { x: start.x + 20, y: start.y + 30 });
+    const a1 = await box(figure(page, 0)), b1 = await box(figure(page, 1));
+    expect(a1.x - a0.x).toBeGreaterThan(10); expect(Math.abs((a1.x - a0.x) - (b1.x - b0.x))).toBeLessThan(2);       // both moved by the same amount
+    expect(Math.abs((a1.y - a0.y) - (b1.y - b0.y))).toBeLessThan(2);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect(Math.abs((await box(figure(page, 0))).x - a0.x)).toBeLessThan(2); expect(Math.abs((await box(figure(page, 1))).x - b0.x)).toBeLessThan(2);
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  });
+
+  test('dragging a rectangle on the empty stage selects what it touches, and the group box surrounds them', async ({ page }) => {
+    const s = await box(page.locator('#stage'));
+    await page.mouse.move(s.x + 8, s.y + 8); await page.mouse.down();
+    await page.mouse.move(s.x + s.width * 0.4, s.y + s.height * 0.5, { steps: 6 });
+    await expect(page.locator('[class*="marquee"]')).toBeVisible();                         // it is drawn while dragging
+    await page.mouse.move(s.x + s.width * 0.8, s.y + s.height * 0.9, { steps: 6 });
+    await page.mouse.up();
+    await expect(page.locator('[class*="marquee"]')).toHaveCount(0);
+    await expect(page.getByRole('toolbar', { name: '3 items selected' })).toBeVisible();     // the two characters and the speech bubble, not the plant
+    const g = await box(page.locator('[class*="selbox"][class*="group"]')), parts = [await box(figure(page, 0)), await box(figure(page, 1)), await box(figure(page, 2))];
+    // Playwright's boxes include the figures' thick outline strokes, which the app (like before) does not measure: allow for them
+    const slack = 14;
+    for (const p of parts) { expect(p.x).toBeGreaterThanOrEqual(g.x - slack); expect(p.x + p.width).toBeLessThanOrEqual(g.x + g.width + slack); expect(p.y).toBeGreaterThanOrEqual(g.y - slack); expect(p.y + p.height).toBeLessThanOrEqual(g.y + g.height + slack); }
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();                // selecting is not an edit
+  });
+
+  test('a click on the empty stage clears the group', async ({ page }) => {
+    await page.keyboard.press('Control+a');
+    await expect(page.getByRole('toolbar', { name: '4 items selected' })).toBeVisible();
+    const s = await box(page.locator('#stage'));
+    await page.mouse.click(s.x + 6, s.y + s.height - 6);
+    await expect(page.getByRole('toolbar')).toHaveCount(0);
+  });
+
+  test('Ctrl+A then Delete clears the board, and Ctrl+Z brings everything back', async ({ page }) => {
+    await page.keyboard.press('Control+a'); await page.keyboard.press('Delete');
+    await expect(items(page)).toHaveCount(0);
+    await page.keyboard.press('Control+z');
+    await expect(items(page)).toHaveCount(4);
+  });
+
+  test('keys act on the group: the arrows move every selected item', async ({ page }) => {
+    await page.keyboard.press('Control+a');
+    const before = [await box(figure(page, 0)), await box(figure(page, 1))];
+    await page.keyboard.press('Shift+ArrowRight');
+    const after = [await box(figure(page, 0)), await box(figure(page, 1))];
+    for (const i of [0, 1]) expect(after[i].x).toBeGreaterThan(before[i].x + 2);
+  });
+
+  test('Shift-click on a selected item takes it out of the group', async ({ page }) => {
+    await page.keyboard.press('Control+a');
+    await page.keyboard.down('Shift');
+    const c = await centre(figure(page, 1)); await page.mouse.click(c.x, c.y);
+    await page.keyboard.up('Shift');
+    await expect(page.getByRole('toolbar', { name: '3 items selected' })).toBeVisible();
+  });
+});
+
+test.describe('adding to a selection with Shift and a marquee', () => {
+  test('Shift plus a marquee around one more item keeps what was already selected', async ({ page }) => {
+    await selectFirstChar(page);                                                    // character 1 (left)
+    const s = await box(page.locator('#stage')), second = await box(items(page).nth(1).locator('.figure'));
+    await page.keyboard.down('Shift');
+    await page.mouse.move(second.x - 12, s.y + s.height - 8);                      // a corner of empty stage, below and left of character 2
+    await page.mouse.down();
+    await page.mouse.move(second.x + second.width + 12, second.y + second.height * 0.4, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.up('Shift');
+    await expect(page.getByRole('toolbar', { name: '2 items selected' })).toBeVisible();   // character 1 kept, character 2 added
+  });
+
+  test('without Shift, a marquee replaces the selection', async ({ page }) => {
+    await selectFirstChar(page);
+    const s = await box(page.locator('#stage')), second = await box(items(page).nth(1).locator('.figure'));
+    await page.mouse.move(second.x - 12, s.y + s.height - 8); await page.mouse.down();
+    await page.mouse.move(second.x + second.width + 12, second.y + second.height * 0.4, { steps: 8 });
+    await page.mouse.up();
+    await expect(page.getByRole('toolbar', { name: 'Selected item' })).toBeVisible();      // just character 2
+  });
+});
