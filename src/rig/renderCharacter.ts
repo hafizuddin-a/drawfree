@@ -1,0 +1,76 @@
+/* Character and item renderers. A character is plain data; its SVG is rebuilt from it on every change.
+   Draw order (back to front): hair back, legs, neck, pelvis or skirt, top, neckwear, left arm,
+   head layers (ears, head, face, facial hair, glasses, hair front, hat), right arm. */
+import type { Character, Item, Prop, PropArgs } from '../types';
+import { INK, f1, pl, shp } from '../parts/draw';
+import { BOTTOMS, FACE, FACIAL, GLASSES, HAIR, HATS, NECK, PROPS, SHOES, TOPS, lookup } from '../parts';
+import { EAR, HEAD_D, slice } from './geometry';
+import { hand, tube } from './limbs';
+import { T_IDLE, poseFrom, rig } from './poses';
+
+const hairOf = lookup(HAIR), faceOf = lookup(FACE), glassesOf = lookup(GLASSES), facialOf = lookup(FACIAL), hatOf = lookup(HATS);
+const neckOf = lookup(NECK), topOf = lookup(TOPS), bottomOf = lookup(BOTTOMS), shoeOf = lookup(SHOES), propOf = lookup(PROPS);
+
+/** a new character with the default look. Pass overrides to change any field. */
+export function newCharacter(o: Partial<Character> = {}): Character {
+  return {
+    id: 'char', kind: 'char', x: 480, y: 300, s: 0.8, r: 0, flip: false,
+    skin: '#ffffff', hair: 'crop', hairC: '#141414', face: 'smile',
+    top: 'tee', topC: '#ffffff', bottom: 'jeans', botC: '#cfe8ff', shoes: 'sneaker', shoeC: '#ffffff',
+    glasses: 'none', facial: 'none', hat: 'none', hatC: '#ffe08a', neck: 'none', neckC: '#ff9a4d',
+    pose: poseFrom(T_IDLE),
+    ...o
+  };
+}
+
+/** the character in local rig space, facing +x */
+export function charSVG(c: Character): string {
+  const hair = hairOf(c.hair), face = faceOf(c.face), gl = glassesOf(c.glasses), fa = facialOf(c.facial), hat = hatOf(c.hat);
+  const nk = neckOf(c.neck), top = topOf(c.top), bot = bottomOf(c.bottom), shoe = shoeOf(c.shoes);
+  const r = rig(c);
+  const arm = (k: 'aL' | 'aR') => {
+    const pts = r[k];
+    let s = tube(pts, 18, c.skin);
+    if (top.sleeve > 0) s += tube(slice(pts, 0, top.sleeve), top.sw + 3, c.topC);
+    return s + hand(pts, c.skin);
+  };
+  const leg = (k: 'lL' | 'lR') => {
+    const pts = r[k];
+    let s = tube(pts, 26, c.skin);
+    if (bot.leg > 0) s += tube(slice(pts, 0, bot.leg), bot.lw + 3, c.botC);
+    if (bot.leg > 100 && bot.stitch) s += `<polyline points="${pl(slice(pts, 8, bot.leg - 6))}" fill="none" stroke="${INK}" stroke-opacity=".45" stroke-width="1.4" stroke-dasharray="3 4" stroke-linecap="round"/>`;
+    if (shoe.boot > 0) s += tube(slice(pts, 176 - shoe.boot, 176), Math.max(bot.lw + 3, 29) + 2, c.shoeC);
+    const a = pts[2], rot = Math.max(-45, Math.min(45, -(c.pose[k][0] + c.pose[k][1]) * 0.5));
+    return s + `<g transform="translate(${f1(a[0])} ${f1(a[1])}) rotate(${f1(rot)})">${shoe.draw(c.shoeC, c.skin)}</g>`;
+  };
+  const head =
+    shp(HEAD_D, c.skin) + EAR + fa.pre(c.hairC) + face.draw() + gl.draw() + fa.post(c.hairC) +
+    (c.hat === 'none' ? hair.front(c.hairC) : '') + hat.draw(c.hatC);
+  return hair.back(c.hairC) + leg('lL') + leg('lR') +
+    shp('M-9,-182 V-160 H9 V-182 Z', c.skin) + bot.pelvis(c.botC) + top.draw(c.topC, c.skin) + nk.draw(c.neckC) +
+    arm('aL') + head + arm('aR');
+}
+
+export const propSVG = (p: { prop: string } & PropArgs): string => propOf(p.prop).draw(p);
+export const propDef = (id: string) => propOf(id);
+
+/** items that cannot face the other way (speech bubbles) */
+export const canFlip = (it: Item): boolean => it.kind === 'char' || !propOf(it.prop).noFlip;
+
+/** the ground shadow shows only while the character stands upright */
+export function shadowSVG(c: Character): string {
+  if (Math.abs(c.r || 0) >= 8) return '';
+  const r = rig(c), ay = Math.max(r.lL[2][1], r.lR[2][1]) + 15, ax = (r.lL[2][0] + r.lR[2][0]) / 2 + 6;
+  return `<ellipse cx="${f1(ax)}" cy="${f1(ay)}" rx="64" ry="7" fill="#000" fill-opacity=".1"/>`;
+}
+/** the item's art in local space (shadow included for characters) */
+export const itemArt = (it: Item): string => (it.kind === 'char' ? shadowSVG(it) + charSVG(it) : propSVG(it));
+export const itemTransform = (it: Item): string =>
+  `translate(${f1(it.x)} ${f1(it.y)}) rotate(${f1(it.r || 0)}) scale(${f1(it.s * 100) / 100})`;
+export const bodyTransform = (it: Item): string => `scale(${it.flip && canFlip(it) ? -1 : 1} 1)`;
+
+/** A static item for export and thumbnails: no hit area, no handles, no editor attributes. */
+export const itemSVG = (it: Item): string =>
+  `<g transform="${itemTransform(it)}"><g transform="${bodyTransform(it)}">${itemArt(it)}</g></g>`;
+
+export type { Prop };

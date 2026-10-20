@@ -2,93 +2,103 @@
 
 Storyboards you drag, not draw. A browser tool for building storyboard frames from full-body, Notion-Faces-style line-art characters. Users swap hair, faces, outfits and shoes, flip a character to face left or right, rotate it, and pose arms and legs by dragging hands and feet. No drawing skill needed.
 
-Long-term goal: the product in the reference image (picker panel with part categories and search, canvas with selection box and floating toolbar). This repo is the working prototype of that.
+Stack: Vite, React 18, TypeScript (strict), Zustand. Static site on Cloudflare Workers. No accounts, free forever, no watermark.
 
 ## Commands
 
 ```
 npm install
-npm run build     # bundles src/ into dist/index.html (standalone) and dist/artifact.html (Claude artifact fragment)
-npm run dev       # build + serve dist locally
-npm run smoke     # build + jsdom smoke test (picking, flip, undo, pose, rotate, scenes, export dialog, save/open, blocked storage)
-npm test          # project-file unit tests (tools/project-test.js), then build + smoke
-npm run sheet     # render a contact sheet of every part to art-sheet.png (use this to check art changes)
-npm run check     # build + tools/check.js (inline script compiles, dist files present). Stand-in for tsc until the TypeScript port
-npm run ci        # what CI runs: unit tests, build, check, smoke
+npm run dev              # Vite dev server
+npm run build            # tsc --noEmit, then vite build into dist/
+npm run typecheck        # tsc --noEmit
+npm test                 # Vitest + jsdom (unit, store, persistence, UI smoke)
+npm run check            # tools/check.js on dist/: size budget, no `any`, parts/rig/scenes stay pure
+npm run ci               # what CI runs: typecheck, test, build, check
+npm run sheet            # render a contact sheet of every part to art-sheet.png (use this to check art changes)
 npm run deploy:staging   # build + check + wrangler deploy --env staging (drawfree-staging)
-npm run deploy    # same for production (drawfree). Ask before running; staging first
-npm run preview   # wrangler versions upload to staging, no traffic change (CI uses this per PR)
+npm run deploy           # same for production (drawfree). Ask before running; staging first
+npm run deploy:preview   # wrangler versions upload to staging, no traffic change (CI does this per PR)
 ```
 
-The smoke test and contact sheet are how art and logic were checked, so run both after changing parts or the editor. jsdom has no canvas, so PNG encoding is not covered by `npm test`: check it in a real browser (see Gotchas).
+Run `npm run ci` before committing. Run `npm run sheet` and look at it after any art change. jsdom has no canvas, so PNG encoding is not covered by `npm test`: check it in a real browser (see Gotchas).
 
-## Architecture (vanilla JS, no framework, no runtime dependencies)
+## Layout
 
-`build.js` concatenates the JS files in this order (parts-a, parts-b, scenes, project, app-a, io, app-b) into one script, so they share one global scope:
+```
+src/
+  types.ts           the data model (Character, Prop, Frame, Project) and part types
+  parts/             hair faces extras tops bottoms shoes props palettes draw.ts index.ts   (pure: no React, no DOM)
+  rig/               geometry.ts ik.ts limbs.ts poses.ts renderCharacter.ts                  (pure)
+  scenes/            scenes.ts backgrounds.ts                                                (pure)
+  state/             store.ts (Zustand, all actions) history.ts persist.ts seed.ts
+  editor/            Stage.tsx Overlay.tsx Editor.tsx interactions.ts useKeyboard.ts
+  ui/                Picker Tabs Thumb(s) sections.ts TopBar FrameStrip Toolbar Dialog ExportDialog CopyDialog Toast Button icons
+  export/            project.ts (files: validate, migrate, names) svg.ts png.ts download.ts frame.ts io.ts prefs.ts
+  App.tsx main.tsx boot.ts styles/tokens.css
+public/_headers      response headers (copied to dist/)
+tools/               sheet.ts (contact sheet, run with tsx), check.js (post-build rules)
+```
 
-| File | Role |
-| --- | --- |
-| `src/parts-a.js` | Drawing helpers (`shp`, `ln`, `tube`, `hand`), rig math (`G`, `fk`, `ik`, `slice`), palettes, and the head parts: `HAIR`, `FACE`, `GLASSES`, `FACIAL`, `HATS`, `NECK` |
-| `src/parts-b.js` | `TOPS`, `BOTTOMS`, `SHOES`, `POSES`, `PROPS`, `newChar()`, `charSVG()` (the character renderer), `propSVG()` |
-| `src/scenes.js` | Line-art backdrops (`SCENES`), `BGC` colours, `sceneSVG`, `frameBG` |
-| `src/project.js` | Pure data code, no DOM: `toProject`/`parseProject` (editor state <-> `.drawfree.json`), `cleanFrames` (validates untrusted data), `MIGRATIONS`, `slug` and file names |
-| `src/app-a.js` | State `S`, config `SECS`/`TABS` (the picker UI is generated from these), rendering, history (`snap`/`doUndo`), localStorage |
-| `src/io.js` | `exportSVG`, SVG to PNG, downloads, save and open project, drag-and-drop open, export dialog, dialog focus handling |
-| `src/app-b.js` | Actions, panel and toolbar events, pointer dragging (move, scale, rotate, joints), keyboard, boot |
-| `src/index.html`, `src/style.css` | Markup template and styles. `@@CSS@@` and `@@JS@@` are replaced at build time |
-| `tools/` | `smoke.js`, `project-test.js`, `sheet.js` |
+Hard rule: nothing in `src/parts`, `src/rig` or `src/scenes` may import React or touch the DOM. They take data in and return SVG strings out. `tools/check.js` enforces it, and also bans `any`.
 
 ### Character model
 
-A character is plain data from `newChar()`: part ids (`hair`, `face`, `top`, `bottom`, `shoes`, `glasses`, `facial`, `hat`, `neck`), colours (`skin`, `hairC`, `topC`, `botC`, `shoeC`, `hatC`, `neckC`), placement (`x`, `y`, `s` scale, `r` rotation in degrees, `flip`) and `pose`. The SVG is regenerated from this data on every change. Never store SVG in state.
+A character is plain data from `newCharacter()`: part ids (`hair`, `face`, `top`, `bottom`, `shoes`, `glasses`, `facial`, `hat`, `neck`), colours (`skin`, `hairC`, `topC`, `botC`, `shoeC`, `hatC`, `neckC`), placement (`x`, `y`, `s` scale, `r` rotation in degrees, `flip`) and `pose`. Items are `kind: 'char'` or `kind: 'prop'` (with `prop: <id>`). The SVG is regenerated from this data on every change. Never store SVG in state. The in-memory shape is the project file shape (spec data model).
 
 ### Coordinate space and rig
 
-- Local space: pelvis at (0,0), figure faces +x, head centre (0,-212), shoulders at (±33,-150), hips at (±19,-4). Every part is drawn in this space, which is why parts from different categories line up.
-- Left-facing is `scale(-1 1)` on the `.body` group. Rotation and scale sit on the outer `.item` group.
+- Local space: pelvis at (0,0), figure faces +x, head centre (0,-212), shoulders (±33,-150), hips (±19,-4). Every part is drawn in this space, which is why parts from different categories line up.
+- Left-facing is `scale(-1 1)` on the `.body` group. Position, rotation and scale sit on the outer `.item` group.
 - Each limb is two bones. `pose` holds `[upperAngle, lowerAngle, bendSign]` per limb (`aL`, `aR` arms, `lL`, `lR` legs). Angles are degrees, 0 is straight down, positive swings toward +x.
-- `ik(origin, l1, l2, target, sign)` solves a limb from a hand or foot target. Arms default to sign +1 (forearm folds forward), legs to -1 (knee folds forward). Poses in `POSES` are stored as targets and solved with IK.
+- `ik(origin, l1, l2, target, sign)` solves a limb from a hand or foot target. Arms default to sign +1, legs to -1. Presets in `POSES` are stored as targets and solved with IK.
 - Draw order in `charSVG`: hair back, legs, neck, pelvis/skirt, top, neckwear, left arm, head layers, right arm.
 
 ### Adding a part
 
-Add an entry to the right list (for example `HAIR`) with `id`, `name`, `tags` and a draw function, using `INK` outlines (stroke 3) and the colour passed in. Add its section to `SECS` if it is a new category. Thumbnails, search and the picker UI come for free, because thumbnails are rendered by `charSVG` with a cropped `viewBox`.
+Add an entry to the right list (for example `HAIR` in `src/parts/hair.ts`) with `id`, `name`, `tags: tags('space separated words')` and the draw function(s) its type in `types.ts` asks for, using `INK` outlines (stroke 3) and the colour passed in. A new category also needs a section in `src/ui/sections.ts` (and a slot in `PART_LISTS` if it is a character slot). Thumbnails, search and the picker UI follow from that. Run `npm test` (it draws every part with every palette colour and checks the SVG parses) and `npm run sheet`.
 
-### Editor behaviour to preserve
+## State and editor behaviour to preserve
 
-- Pointer drags use `window` listeners because the stage is re-rendered with `innerHTML` on every move. Do not attach drag state to elements.
-- `snap()` pushes a history entry. Call it once before a mutation, and for drags only after the pointer has moved.
-- The selection box is measured from the rendered `.body` group's bounding box, so it stays axis-aligned when a character is rotated.
-- Exported SVG (`exportSVG`) has no editor chrome (hit areas and pose handles are skipped) and has named layers (`background`, `scene`, `character-N`).
-- Editor items use `type: 'char' | 'prop'` and, for props, `kind: <prop id>`. The file format (spec data model) uses `kind: 'char' | 'prop'` and `prop`. Only `toProjectItem` / `fromProjectItem` in `project.js` convert between them. localStorage keeps the editor shape under `drawfree.v1` (plus `name`, `aspect`), so older saves still load.
-- Everything read from outside (an opened file, localStorage) goes through `cleanFrames`: unknown part ids fall back to the section's first part, bad colours to defaults, unknown props are dropped, numbers are clamped, XML-illegal characters stripped. Add new character fields to `PART_LISTS` or `COLOR_SLOTS` there, and to `toProjectItem`.
-- To change the file format: bump `PROJECT_VERSION` and add `MIGRATIONS[oldVersion]`. Files with a newer version are refused.
-- Autosave is debounced 500 ms (`save`), flushed on `pagehide` and when the tab is hidden (`saveNow`), and never throws. The project name and aspect are not in the undo history; opening a file is one undo step.
-- Dialogs use `openDialog` / `closeDialogs` in `io.js` (focus moves in, Tab is trapped, Esc closes, focus returns). Use them for any new dialog.
+- **Immutable state.** Every action builds new frames and items; never edit in place. `React.memo` on `ItemView` and cheap undo both depend on it. Past snapshots are plain references.
+- **History.** `snap()` pushes one undo step. Call it once before a mutation. For drags it runs only after the pointer has moved 3px (move) or at all (other drags), so a click never makes an undo step. Typed text (note, project name) makes no step per keystroke; a bubble's text snaps once on focus.
+- **Drags.** `editor/interactions.ts` keeps the drag session in a ref with `pointermove`/`pointerup` listeners on `window`. Never attach drag state to elements: the stage re-renders on every change.
+- **Joint dragging** uses the inverse of the `.body` group's `getScreenCTM()`, so joints land on the pointer after flip, rotation and scale.
+- The selection box is measured from the rendered `.body` group's bounding box, so it stays axis-aligned when a character is rotated. The Overlay re-measures in `useLayoutEffect`.
+- Pose handles and hit areas exist only in the editor. `itemSVG` (export, thumbnails) emits no editor chrome. While Pose is on, the scale corners are hidden (they sat on raised hands).
+- The ground shadow shows only when rotation is under 8 degrees.
+- The picker and frame strip use `useDeferredValue`, so they catch up when a drag settles instead of re-rendering per pointer move. Thumbnails are cached in `ui/thumbs.ts` by section, part and the character's look.
+- Dialogs use `ui/Dialog.tsx` (focus moves in, Tab is trapped, Esc and backdrop close, focus returns). Never use `alert`, `confirm` or `prompt`: use the toast and dialogs.
+- Autosave (`state/persist.ts`): key `drawfree.v1`, debounced 500 ms, flushed on `pagehide` and when hidden, never throws, warns once if storage is blocked. It reads the old prototype shape (`type`/`kind` items) and the older `inkframe.v1` key.
+
+## Project files
+
+`export/project.ts` is the only door for data from outside (opened files, localStorage): `parseProject`, `parseProjectObject`, `cleanFrames`. It repairs rather than rejects: unknown part ids fall back to the section's first part, bad colours to defaults, numbers are clamped, XML-illegal characters stripped, unknown props dropped (counted, shown in a toast). Files from a newer version are refused. To change the format: bump `PROJECT_VERSION` and add `MIGRATIONS[oldVersion]`. New character fields go in `PART_LISTS`/`COLOR_SLOTS` handling in `cleanItem`. File names: `<project-name>-frame-<n>.<ext>`, `<project-name>.drawfree.json`.
+
+## Hosting and CI
+
+- `wrangler.jsonc`: production `drawfree` and `env.staging` `drawfree-staging`, SPA fallback, assets from `dist/`. Staging: https://drawfree-staging.hello-hafiz.workers.dev. Production: https://drawfree.hello-hafiz.workers.dev. Custom domain drawfree.fun to be connected later (dashboard: Worker, Settings, Domains & Routes).
+- `public/_headers`: strict CSP (`script-src 'self'`: the build has no inline scripts; styles allow inline because the art uses `style` attributes), nosniff, referrer and permissions policies, `no-cache` on `/`, immutable cache on `/assets/*`. A new external origin (fonts, analytics, a share API) must be added to the CSP or the browser silently blocks it. Check the console on a preview URL after such a change.
+- `.github/workflows/ci.yml`: every PR and push to `main` runs `npm run ci`; PRs from this repo get a preview URL (version upload to staging) commented on them. `deploy.yml`: `main` deploys to staging; production is a manual run. Secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set on the repo.
+- Product decisions (founder, Oct 2026): no accounts, free forever, no watermark, 16:9 only for v1 (aspect stays in the file format and is preserved, but there is no picker), no illustrator for now (Open Peeps for heads plus original art), custom domain drawfree.fun later.
 
 ## Status and roadmap
 
-Done: SVG and PNG download (1x/2x/3x, transparent option) from the Export dialog, save and open `.drawfree.json` (button, Ctrl/Cmd+S and +O, drag a file onto the page), part picker with search, ~50 original parts, full-body rig with IK posing and presets, flip, rotate, scale, move, duplicate, bring to front, undo/redo, multi-frame storyboard with notes, scenes and background colours, copy-as-SVG, autosave to localStorage (`drawfree.v1`, migrates from the old `inkframe.v1`).
+Done: milestone 1 (SVG and PNG export, save and open `.drawfree.json`, drag-drop open), milestone 2 (staging and production Workers, headers, CI, PR previews), milestone 3 (this port; parity with the prototype checked byte for byte on the seed export and the contact sheet).
 
-Next, roughly in priority order:
+Next, in the spec's order:
 
-1. **Board export.** PDF contact sheet and PNG strip for the whole storyboard (frame export is done). Downloads are blocked inside Claude's artifact viewer; Copy SVG remains for that case.
-2. **Optional cloud save and share links** (Cloudflare R2 + D1). Local save and open are done.
-3. **Better art.** All art is original and hand-coded, so it is rougher than a real illustrator's work. Options: import Open Peeps (CC0, https://www.openpeeps.com) by converting each part to one of these draw functions with fixed anchors, or commission an illustrator for hands and faces only and keep the rest. Check each asset's licence before shipping.
-4. **More head angles** (profile, back, looking up or down). Hair and faces must be redrawn per angle.
-5. **Poseable hands** (open, fist, point) and a held-prop slot so characters can hold objects.
-6. **Snap-to-surface for sitting**, so a seated character lands on a chair.
-7. **Rotated selection box** and multi-select.
-8. **Move to Vite + React + TypeScript** once the UI grows. The data model and part functions port as they are, and Zustand would replace the global `S`.
-9. Touch polish for phones and tablets, keyboard accessibility for the picker, automated tests that run `smoke.js` in CI.
+4. **Frame management and board export.** Reorder frames (not done yet); PDF (`pdf-lib`, load on demand) and PNG strip export for the whole board. Aspect-ratio choice is dropped: v1 is 16:9.
+5. **Editor polish.** Multi-select, rotated selection box, zoom and pan, keyboard route for every action (`+`/`-` scale, Ctrl/Cmd+D, Alt+] front; arrow nudge is 4/20 px now and the spec says 1/10), touch testing on phone and tablet (handle sizes do not yet scale with the stage's zoom), Playwright interaction and axe tests (not set up yet).
+6. **Art upgrade.** Open Peeps heads via `tools/import-peeps.ts` and `LICENSES.md`. The raw pack lives in `assets/open-peeps/` (gitignored, local only).
+7. **Hands and held props**, seated characters snap to chairs.
+8. **Optional share links** (Worker, R2, D1).
+Also before launch: self-host Figtree and Bricolage Grotesque (then drop the Google Fonts origins from the CSP), Lighthouse 90+ on the production URL.
 
 ## Gotchas
 
-- `dist/artifact.html` is a fragment (no doctype or head) because Claude's artifact viewer wraps it. Host `dist/index.html`.
-- PNG export draws the SVG through an `<img>`, which cannot use the page's web fonts, so speech-bubble text falls back to the system font in PNGs until the fonts are self-hosted and embedded.
-- Aspect ratio is stored in the project file and preserved, but the stage is still fixed at 16:9 (960x540). Per-project aspect choice is milestone 4.
-- Hosting: `wrangler.jsonc` has production (`drawfree`) and `env.staging` (`drawfree-staging`). Staging is at https://drawfree-staging.hello-hafiz.workers.dev. `public/_headers` sets a strict CSP; any new external origin (fonts, analytics, a share API) must be added to it or the browser silently blocks it. Check the console on staging after such a change.
-- The standalone page loads Figtree and Bricolage Grotesque from Google Fonts. If a strict CSP is added to `public/_headers`, allow `fonts.googleapis.com` and `fonts.gstatic.com` plus inline scripts and styles, or self-host the fonts.
-- Product decisions (from the founder, Oct 2026): no accounts, free forever, no watermark on exports, no illustrator for now (Open Peeps plus original art), custom domain drawfree.fun to be connected later.
 - Scene line colour switches by background luminance. Character outlines are always near-black, so dark backgrounds make them hard to see. Keep backgrounds light unless outlines become themeable.
-- Browsers never show `alert`, `confirm` or `prompt` inside the artifact viewer. The app uses its own toast and modal, so keep it that way.
+- PNG export draws the SVG through an `<img>`, which cannot use the page's web fonts, so speech-bubble text falls back to the system font in PNGs until the fonts are self-hosted and embedded. The root `<svg>` needs explicit `width`/`height` for Safari and Firefox. Not yet tested in Safari or Firefox.
+- The standalone page loads Figtree and Bricolage Grotesque from Google Fonts.
+- jsdom stubs (`src/test/setup.ts`) fake `getScreenCTM`, `DOMPoint` and layout, so tests prove the logic, not the geometry. Geometry (drag lands on the pointer, selection box fits) was checked in a real browser.
+- The old Claude artifact build (`dist/artifact.html`) is gone with the vanilla build. Downloads are blocked inside Claude's artifact viewer; Copy SVG (with its manual-copy dialog) is the fallback.
+- TypeScript 7 rejects some regex literals the older compiler accepted; `XML_ILLEGAL` is built with `new RegExp(string)` for that reason.

@@ -1,0 +1,25 @@
+.stagecell { grid-area: stage; min-width: 0; min-height: 0; position: relative; }
+.board { position: absolute; inset: 0; }
+.overlay { position: absolute; inset: 0; pointer-events: none; }
+.selbox { position: absolute; border: 2px solid var(--accent); }
+.corner { position: absolute; width: 16px; height: 16px; margin: -8px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); pointer-events: auto; touch-action: none; }
+.corner::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
+@media (pointer: coarse) { .corner::after { inset: -14px; } }   /* 44px touch target */
+.corner[data-c="nw"], .corner[data-c="se"] { cursor: nwse-resize; }
+.corner[data-c="ne"], .corner[data-c="sw"] { cursor: nesw-resize; }
+.rot { position: absolute; width: 28px; height: 28px; margin: -14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); color: var(--accent); display: grid; place-items: center; pointer-events: auto; cursor: grab; touch-action: none; }
+.rot::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
+.rot svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.rotline { position: absolute; width: 2px; height: 14px; background: var(--accent); }
+.tb { position: absolute; width: 56px; padding: 6px 0; border-radius: 28px; background: var(--accent); display: flex; flex-direction: column; align-items: center; pointer-events: auto; box-shadow: var(--shadow); }
+.tb button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; color: var(--accent-ink); display: grid; place-items: center; padding: 0; }
+.tb button:hover, .tb button.on { background: rgba(255, 255, 255, .28); }
+.tb button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px currentColor; }   /* the state is not carried by colour alone */
+.tb svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tb button:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -3px; }
+@media (max-width: 860px) { .stagecell { aspect-ratio: 16 / 9; } }
+/* phone and small tablet: the toolbar sits in a row under the stage instead of floating over it */
+@media (max-width: 860px) {
+  .stagecell { margin-bottom: 64px; }
+  .tb { top: auto !important; left: 50% !important; bottom: -64px; transform: translateX(-50%); flex-direction: row; width: auto; height: 56px; padding: 0 6px; align-items: center; }
+}

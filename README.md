@@ -8,10 +8,13 @@ Build storyboard frames from full-body line-art characters. Swap hair, outfits a
 
 ```
 npm install
-npm run dev
+npm run dev        # Vite dev server
+npm test           # unit, store, persistence and UI tests
+npm run ci         # everything CI runs
+npm run sheet      # contact sheet of every part, to art-sheet.png
 ```
 
-Then open the address `serve` prints. Edit files in `src/` and run `npm run build` again. The page is a single file with no runtime dependencies.
+Built with Vite, React 18, TypeScript (strict) and Zustand. Character art is plain SVG strings drawn by pure functions in `src/parts` and `src/rig`, so it runs (and is tested) in Node without a browser. See `CLAUDE.md` for the architecture.
 
 ## Deploy to Cloudflare
 
@@ -21,10 +24,10 @@ Then open the address `serve` prints. Edit files in `src/` and run `npm run buil
 npx wrangler login          # once
 npm run deploy:staging      # https://drawfree-staging.<your-subdomain>.workers.dev
 npm run deploy              # production: https://drawfree.<your-subdomain>.workers.dev
-npm run preview             # uploads a preview version of staging without changing it
+npm run deploy:preview     # uploads a preview version of staging without changing it
 ```
 
-Each deploy script builds and runs `tools/check.js` first. Response headers (CSP, caching, nosniff) live in `public/_headers` and are copied to `dist/` by the build. `public/.assetsignore` keeps `artifact.html` (the Claude artifact fragment) off the public site.
+Each deploy script type-checks, builds and runs `tools/check.js` first. Response headers (CSP, caching, nosniff) live in `public/_headers` and are copied to `dist/` by the build.
 
 **Custom domain (drawfree.fun):** add the domain to Cloudflare DNS, then in the dashboard open the `drawfree` Worker, Settings, Domains & Routes, Add, Custom domain. Nothing in the app depends on the hostname.
 
@@ -32,13 +35,13 @@ Cloudflare Pages is the fallback: `npm run build && npx wrangler pages deploy di
 
 ### CI
 
-- `.github/workflows/ci.yml` runs on every pull request and push to `main`: `npm ci`, then `npm run ci` (unit tests, build, built-page check, jsdom smoke test). Pull requests from this repo also get a preview URL, posted as a PR comment, from a version upload to the staging Worker.
+- `.github/workflows/ci.yml` runs on every pull request and push to `main`: `npm ci`, then `npm run ci` (typecheck, tests, build, size and source-rule check). Pull requests from this repo also get a preview URL, posted as a PR comment, from a version upload to the staging Worker.
 - `.github/workflows/deploy.yml` deploys `main` to staging on every merge. Production is a manual run (Actions, Deploy, Run workflow, choose production). Add required reviewers to the `production` environment in GitHub for an approval step.
 - Set two repository secrets: `CLOUDFLARE_API_TOKEN` (create it from the "Edit Cloudflare Workers" template) and `CLOUDFLARE_ACCOUNT_ID`. Never commit them.
 
 ## Working on it with Claude Code
 
-Open this folder in Claude Code. `CLAUDE.md` describes the architecture, the part and rig conventions, and a prioritised roadmap, so Claude has what it needs without extra setup. Run `npm test` before committing.
+Open this folder in Claude Code. `CLAUDE.md` describes the architecture, the part and rig conventions, and a prioritised roadmap, so Claude has what it needs without extra setup. Run `npm run ci` before committing.
 
 ## Files
 
