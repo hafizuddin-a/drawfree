@@ -195,6 +195,48 @@ describe('frames', () => {
   });
 });
 
+describe('reordering frames', () => {
+  const names = () => st().frames.map(f => f.note);
+  const three = () => {
+    st().setNote('A'); st().addFrame(); st().setNote('B'); st().addFrame(); st().setNote('C');
+    st().selectFrame(0);
+  };
+  it('moves a frame to a new position', () => {
+    three();
+    st().moveFrame(0, 2); expect(names()).toEqual(['B', 'C', 'A']);
+    st().moveFrame(2, 1); expect(names()).toEqual(['B', 'A', 'C']);
+  });
+  it('the current frame stays current wherever it moves', () => {
+    three(); st().selectFrame(1);
+    st().moveFrame(0, 2);                                        // B was at 1 and shifts to 0
+    expect(currentFrame(st()).note).toBe('B'); expect(st().fi).toBe(0);
+    st().moveFrame(0, 1); expect(currentFrame(st()).note).toBe('B'); expect(st().fi).toBe(1);
+  });
+  it('keeps the selected item when the current frame moves', () => {
+    three(); st().selectFrame(0);
+    const id = firstChar().id; st().select(id);
+    st().moveFrame(0, 2);
+    expect(st().sel).toBe(id); expect(st().fi).toBe(2);
+  });
+  it('is one undo step, and ignores moves that change nothing', () => {
+    three(); const steps = st().past.length;
+    st().moveFrame(1, 1); st().moveFrame(-1, 0); st().moveFrame(0, 3); st().moveFrame(0.5, 1); st().moveFrame(Number.NaN, 0);
+    expect(st().past).toHaveLength(steps); expect(names()).toEqual(['A', 'B', 'C']);
+    st().moveFrame(0, 1); expect(st().past).toHaveLength(steps + 1);
+    st().undo(); expect(names()).toEqual(['A', 'B', 'C']);
+    st().redo(); expect(names()).toEqual(['B', 'A', 'C']);
+  });
+  it('reuses the frame objects, so unchanged thumbnails are not redrawn', () => {
+    three(); const [a, b, c] = st().frames;
+    st().moveFrame(0, 2);
+    expect(st().frames[0]).toBe(b); expect(st().frames[1]).toBe(c); expect(st().frames[2]).toBe(a);
+  });
+  it('announces the move', () => {
+    three(); st().moveFrame(0, 2);
+    expect(st().toast?.msg).toBe('Frame moved to position 3');
+  });
+});
+
 describe('projects', () => {
   it('loading a project replaces everything and is one undo step', () => {
     const before = st().frames;

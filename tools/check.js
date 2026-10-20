@@ -29,6 +29,15 @@ if (fs.existsSync(htmlPath)) {
   }
   if (/<script(?![^>]*\bsrc=)[^>]*>[^<]/i.test(html)) problems.push('index.html has an inline script, but the CSP only allows external ones');
 }
+// chunks index.html does not load are fetched on demand (the PDF exporter). Report them, and fail if they leaked into first load.
+let lazy = '';
+if (fs.existsSync(path.join(dist, 'assets'))) {
+  const loaded = new Set(fs.existsSync(htmlPath) ? [...fs.readFileSync(htmlPath, 'utf8').matchAll(/\/assets\/([^"]+)/g)].map(m => m[1]) : []);
+  const others = fs.readdirSync(path.join(dist, 'assets')).filter(f => f.endsWith('.js') && !loaded.has(f));
+  lazy = others.map(f => `${f} ${(zlib.gzipSync(fs.readFileSync(path.join(dist, 'assets', f)), { level: 9 }).length / 1024).toFixed(0)} KB`).join(', ');
+  const main = [...loaded].filter(f => f.endsWith('.js')).map(f => fs.readFileSync(path.join(dist, 'assets', f), 'utf8')).join('');
+  if (main.includes('endobj')) problems.push('pdf-lib code is in the first-load bundle; it must stay a dynamic import');
+}
 if (gz / 1024 > BUDGET_KB) problems.push(`JS+CSS is ${(gz / 1024).toFixed(0)} KB gzipped, over the ${BUDGET_KB} KB budget`);
 
 /* ---- source rules ---- */
@@ -45,4 +54,4 @@ for (const f of ts.filter(f => PURE.some(d => f.startsWith(d)) && !/\.test\.tsx?
 }
 
 if (problems.length) { console.error('CHECK FAILED\n - ' + problems.join('\n - ')); process.exit(1); }
-console.log(`check ok (JS+CSS ${(gz / 1024).toFixed(1)} KB gzipped of ${BUDGET_KB}; ${ts.length} TypeScript files)`);
+console.log(`check ok (JS+CSS ${(gz / 1024).toFixed(1)} KB gzipped of ${BUDGET_KB}; ${ts.length} TypeScript files; on demand: ${lazy || 'none'})`);

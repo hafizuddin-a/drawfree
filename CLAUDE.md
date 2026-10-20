@@ -35,6 +35,7 @@ src/
   editor/            Stage.tsx Overlay.tsx Editor.tsx interactions.ts useKeyboard.ts
   ui/                Picker Tabs Thumb(s) sections.ts TopBar FrameStrip Toolbar Dialog ExportDialog CopyDialog Toast Button icons
   export/            project.ts (files: validate, migrate, names) svg.ts png.ts download.ts frame.ts io.ts prefs.ts
+                     layout.ts (pure: PNG strip and PDF layout math, text wrapping) board.ts (canvas strip, PDF glue) pdf.ts (pdf-lib, lazy)
   App.tsx main.tsx boot.ts styles/tokens.css
 public/_headers      response headers (copied to dist/)
 tools/               sheet.ts (contact sheet, run with tsx), check.js (post-build rules)
@@ -73,6 +74,19 @@ Add an entry to the right list (for example `HAIR` in `src/parts/hair.ts`) with 
 - **Markup from strings.** Art is SVG strings injected with `svgMarkup()` (`ui/markup.ts`, the only place `dangerouslySetInnerHTML` is used). Only pass strings built by the pure part, rig and scene functions, which escape user text with `esc()`. Never pass user input, file contents or anything not drawn by our own code.
 - Autosave (`state/persist.ts`): key `drawfree.v1`, debounced 500 ms, flushed on `pagehide` and when hidden, never throws, warns once if storage is blocked. It reads the old prototype shape (`type`/`kind` items) and the older `inkframe.v1` key.
 
+## Export
+
+- **Frame**: SVG, or PNG at 1x/2x/3x, optional transparent background (`export/frame.ts`, `svg.ts`, `png.ts`).
+- **Board PNG strip** (`board.ts`): every frame drawn onto one canvas in a grid (1 to 4 columns, 480/720/960 px frames) with numbered captions and optional notes. The canvas text uses Figtree, so any script works. `layout.ts` shrinks the frames when the image would pass the browser's canvas limits (16 million pixels, the Safari cap) and throws if even tiny frames cannot fit.
+- **Board PDF** (`pdf.ts`): A4 or Letter, landscape or portrait, one frame per page or a 2 or 3 per row contact sheet. Frames are PNG images (2x), notes are real text. pdf-lib's built-in Helvetica covers Latin-1 only, so other characters (emoji, CJK, Arabic) become `?` and the toast says how many. Fixing that needs an embedded font (`@pdf-lib/fontkit` plus a font file, also loaded on demand).
+- **pdf-lib is a dynamic import** and a separate 172 KB chunk. `tools/check.js` fails the build if it ever lands in the first-load bundle. Keep `import('pdf-lib')` inside `buildPdf`.
+- All layout math is pure (`export/layout.ts`) and tested in Node. `buildPdf` takes the frame renderer as an argument, so its tests run real pdf-lib without a canvas. The canvas parts (`board.ts`, `png.ts`) are only checked in a real browser.
+- The export dialog remembers its choices in localStorage (`drawfree.export`), guarded for blocked storage.
+
+## Frames
+
+Add, duplicate, delete, reorder, and a note per frame. Reordering (`moveFrame`) works three ways: drag a thumbnail (mouse and pen; `FrameStrip` keeps the session in a ref with window listeners, like the stage), the Move earlier and Move later buttons, and Alt+Arrow on a focused thumbnail. Touch drags are left to the strip to scroll, so touch users use the buttons. A move is one undo step, the current frame stays current, and a toast announces it. The strip compares the current frame by id, not by index, because the thumbnails are a deferred value.
+
 ## Project files
 
 `export/project.ts` is the only door for data from outside (opened files, localStorage): `parseProject`, `parseProjectObject`, `cleanFrames`. It repairs rather than rejects: unknown part ids fall back to the section's first part, bad colours to defaults, numbers are clamped, XML-illegal characters stripped, unknown props dropped (counted, shown in a toast). Files from a newer version are refused. To change the format: bump `PROJECT_VERSION` and add `MIGRATIONS[oldVersion]`. New character fields go in `PART_LISTS`/`COLOR_SLOTS` handling in `cleanItem`. File names: `<project-name>-frame-<n>.<ext>`, `<project-name>.drawfree.json`.
@@ -86,11 +100,10 @@ Add an entry to the right list (for example `HAIR` in `src/parts/hair.ts`) with 
 
 ## Status and roadmap
 
-Done: milestone 1 (SVG and PNG export, save and open `.drawfree.json`, drag-drop open), milestone 2 (staging and production Workers, headers, CI, PR previews), milestone 3 (this port; parity with the prototype checked byte for byte on the seed export and the contact sheet).
+Done: milestone 1 (SVG and PNG export, save and open `.drawfree.json`, drag-drop open), milestone 2 (staging and production Workers, headers, CI, PR previews), milestone 3 (this port; parity with the prototype checked byte for byte on the seed export and the contact sheet), milestone 4 (frame reordering, board PNG strip and PDF export).
 
 Next, in the spec's order:
 
-4. **Frame management and board export.** Reorder frames (not done yet); PDF (`pdf-lib`, load on demand) and PNG strip export for the whole board. Aspect-ratio choice is dropped: v1 is 16:9.
 5. **Editor polish.** Multi-select, rotated selection box, zoom and pan, keyboard route for every action (`+`/`-` scale, Ctrl/Cmd+D, Alt+] front; arrow nudge is 4/20 px now and the spec says 1/10), touch testing on phone and tablet (handle sizes do not yet scale with the stage's zoom), Playwright interaction and axe tests (not set up yet).
 6. **Art upgrade.** Open Peeps heads via `tools/import-peeps.ts` and `LICENSES.md`. The raw pack lives in `assets/open-peeps/` (gitignored, local only).
 7. **Hands and held props**, seated characters snap to chairs.
@@ -99,6 +112,7 @@ Also before launch: self-host Figtree and Bricolage Grotesque (then drop the Goo
 
 ## Gotchas
 
+- Aspect ratio: v1 is 16:9 only, by the founder's decision. The `aspect` field stays in the project file and is preserved, but nothing reads it.
 - Scene line colour switches by background luminance. Character outlines are always near-black, so dark backgrounds make them hard to see. Keep backgrounds light unless outlines become themeable.
 - PNG export draws the SVG through an `<img>`, which cannot use the page's web fonts, so speech-bubble text falls back to the system font in PNGs until the fonts are self-hosted and embedded. The root `<svg>` needs explicit `width`/`height` for Safari and Firefox. Not yet tested in Safari or Firefox.
 - The standalone page loads Figtree and Bricolage Grotesque from Google Fonts.
