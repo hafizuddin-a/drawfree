@@ -1,0 +1,24 @@
+{
+  "name": "drawfree",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Storyboards you drag, not draw.",
+  "scripts": {
+    "build": "node build.js",
+    "smoke": "node build.js && node tools/smoke.js",
+    "test": "node tools/project-test.js && node build.js && node tools/smoke.js",
+    "sheet": "node tools/sheet.js . art-sheet.png",
+    "dev": "node build.js && npx serve dist",
+    "check": "node build.js && node tools/check.js",
+    "ci": "node tools/project-test.js && node build.js && node tools/check.js && node tools/smoke.js",
+    "deploy": "node build.js && node tools/check.js && wrangler deploy",
+    "deploy:staging": "node build.js && node tools/check.js && wrangler deploy --env staging",
+    "preview": "node build.js && node tools/check.js && wrangler versions upload --env staging"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "jsdom": "^26.0.0",
+    "serve": "^14.2.4",
+    "wrangler": "^4.0.0"
+  }
+}

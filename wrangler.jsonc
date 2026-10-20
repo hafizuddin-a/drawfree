@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Production. `wrangler deploy` publishes this one; staging is `wrangler deploy --env staging`.
+  "name": "drawfree",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": "./dist",
+    // Static app: unknown paths serve index.html. Headers come from dist/_headers (copied from public/).
+    "not_found_handling": "single-page-application"
+  },
+  "env": {
+    "staging": {
+      "name": "drawfree-staging",
+      "workers_dev": true,
+      "preview_urls": true
+    }
+  }
+}
