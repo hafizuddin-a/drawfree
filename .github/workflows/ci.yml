@@ -26,6 +26,28 @@ jobs:
       # typecheck, unit and UI tests, build, then the size budget and source rules (tools/check.js)
       - run: npm run ci
 
+  # Real browsers: Chromium, WebKit (Safari's engine) and a phone viewport. Interaction tests plus axe accessibility checks.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
   # Every PR from this repo gets a preview URL on the staging Worker. It is a version upload, so staging itself is untouched.
   preview:
     needs: test

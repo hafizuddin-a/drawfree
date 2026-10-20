@@ -1,7 +1,7 @@
 /* Design tokens and base styles. Light and dark themes; character art stays light in both. */
 :root {
   --bg: #f3f5f7; --panel: #ffffff; --line: #e1e5ea; --ink: #1b1c1e; --muted: #667078;
-  --accent: #0b9cf2; --accent-ink: #ffffff; --accent-soft: #dff0fe; --field: #f3f5f7;
+  --accent: #0b9cf2; --accent-ink: #ffffff; --accent-btn: #0a74bd;   /* --accent-btn: filled buttons, 4.9:1 with white text */ --accent-soft: #dff0fe; --field: #f3f5f7;
   --shadow: 0 1px 2px rgba(20, 30, 40, .06), 0 8px 24px rgba(20, 30, 40, .06);
   --thumb: #f1f5f9; --thumb-on: #cfe8fb;           /* artwork tiles stay light in both themes */
   --font-ui: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -12,13 +12,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #131415; --panel: #1c1e20; --line: #2c2f33; --ink: #ecebe8; --muted: #98a0a8;
-    --accent: #3db0ff; --accent-ink: #06141f; --accent-soft: #1a3345; --field: #26292c;
+    --accent: #3db0ff; --accent-ink: #06141f; --accent-btn: #3db0ff; --accent-soft: #1a3345; --field: #26292c;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #131415; --panel: #1c1e20; --line: #2c2f33; --ink: #ecebe8; --muted: #98a0a8;
-  --accent: #3db0ff; --accent-ink: #06141f; --accent-soft: #1a3345; --field: #26292c;
+  --accent: #3db0ff; --accent-ink: #06141f; --accent-btn: #3db0ff; --accent-soft: #1a3345; --field: #26292c;
   --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35); color-scheme: dark;
 }
 [hidden] { display: none !important; }
@@ -38,6 +38,8 @@ h3 { font-size: 13px; font-weight: 700; margin: 16px 0 8px; letter-spacing: .01e
 #stage { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
 #stage .item { cursor: grab; }
 #stage .jh, #stage .bh { cursor: pointer; }
+/* a focused item is selected, and the selection box shows it: no second outline around the big hit area */
+#stage .hit:focus { outline: none; }
 /* touch targets: handles get a larger invisible hit circle, so a finger never loses them */
 #stage .hitc { fill: transparent; }
 

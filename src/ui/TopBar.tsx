@@ -17,7 +17,7 @@ export function TopBar({ onOpen, onSave, onExport }: Props) {
   useEffect(() => { setDraft(d => (d !== null && cleanName(d) !== name ? null : d)); }, [name]);
   return (
     <header className={styles.top}>
-      <div className={styles.brand}><Icon name="brand" />Drawfree</div>
+      <h1 className={styles.brand}><Icon name="brand" />Drawfree</h1>
       <input className={styles.pname} type="text" maxLength={80} placeholder="Untitled storyboard" aria-label="Project name" autoComplete="off"
         value={draft ?? name} onChange={e => { setDraft(e.target.value); setName(e.target.value); }} onBlur={() => setDraft(null)}
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />

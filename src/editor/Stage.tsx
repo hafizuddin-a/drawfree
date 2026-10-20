@@ -1,6 +1,6 @@
 import { forwardRef, memo, useMemo, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Character, Item } from '../types';
-import { bodyTransform, itemArt, itemTransform } from '../rig/renderCharacter';
+import { bodyTransform, itemArt, itemTransform, propDef } from '../rig/renderCharacter';
 import { rig } from '../rig/poses';
 import { f1 } from '../parts/draw';
 import { frameBG } from '../scenes/scenes';
@@ -29,12 +29,17 @@ function PoseHandles({ c }: { c: Character }) {
 }
 
 /** One item. Memoised on the item itself, so only the item being dragged re-renders. */
-const ItemView = memo(function ItemView({ item, handles }: { item: Item; handles: boolean }) {
+const ItemView = memo(function ItemView({ item, handles, label, selected }: { item: Item; handles: boolean; label: string; selected: boolean }) {
   const art = useMemo(() => itemArt(item), [item]);
   const isChar = item.kind === 'char';
   return (
     <g className="item" data-id={item.id} transform={itemTransform(item)}>
-      <rect className="hit" x={-130} y={isChar ? -290 : -200} width={260} height={isChar ? 490 : 240} fill="transparent" />
+      {/* The hit area is also the keyboard stop: it has no text inside, so its name never disagrees with what is drawn. Focusing selects. */}
+      {/* biome-ignore lint/a11y/useSemanticElements: an SVG rect cannot be a <button>; this is how items become reachable by keyboard */}
+      <rect className="hit" x={-130} y={isChar ? -290 : -200} width={260} height={isChar ? 490 : 240} fill="transparent"
+        role="button" tabIndex={0} aria-label={label} aria-pressed={selected}
+        onFocus={() => useEditor.getState().select(item.id)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); useEditor.getState().select(item.id); } }} />
       <g className="body" transform={bodyTransform(item)}>
         <g {...svgMarkup(art)} />
         {handles && isChar && <PoseHandles c={item} />}
@@ -42,6 +47,13 @@ const ItemView = memo(function ItemView({ item, handles }: { item: Item; handles
     </g>
   );
 });
+
+/** a spoken name for an item: "Character 2", "Speech bubble" */
+function labelOf(items: readonly Item[], i: number): string {
+  const it = items[i];
+  if (it.kind === 'prop') return it.text ? `${propDef(it.prop).name}: ${it.text}` : propDef(it.prop).name;
+  return `Character ${items.slice(0, i + 1).filter(x => x.kind === 'char').length}`;
+}
 
 interface Props { onPointerDown: (e: ReactPointerEvent<SVGSVGElement>) => void }
 
@@ -51,9 +63,10 @@ export const Stage = forwardRef<SVGSVGElement, Props>(function Stage({ onPointer
   // the background is redrawn only when it changes, not on every drag
   const bg = useMemo(() => frameBG({ bg: bgColor, scene }, true), [bgColor, scene]);
   return (
-    <svg id="stage" ref={ref} viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
+    // biome-ignore lint/a11y/useSemanticElements: the stage is an SVG, which cannot be a fieldset. role=group (not img) because its items are focusable.
+    <svg id="stage" ref={ref} viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
       <g {...svgMarkup(bg)} />
-      {items.map(it => <ItemView key={it.id} item={it} handles={pose && it.id === sel} />)}
+      {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel} selected={it.id === sel} label={labelOf(items, i)} />)}
     </svg>
   );
 });

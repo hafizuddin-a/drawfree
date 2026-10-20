@@ -5,7 +5,7 @@ import { frameBG } from '../scenes/scenes';
 import { currentFrame, useEditor } from '../state/store';
 import { Button } from './Button';
 import { Icon } from './icons';
-import { svgMarkup } from './markup';
+import { svgImgSrc } from './markup';
 import styles from './FrameStrip.module.css';
 
 /** the frame's art for a thumbnail: background, scene and items, without any editor chrome */
@@ -24,7 +24,7 @@ interface ButtonProps {
 }
 
 const FrameButton = memo(function FrameButton({ frame, index, on, drop, dragging, onPointerDown, onClick, onMove }: ButtonProps) {
-  const html = useMemo(() => `<svg viewBox="0 0 960 540" aria-hidden="true">${frameArt(frame)}</svg>`, [frame]);
+  const src = useMemo(() => svgImgSrc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">${frameArt(frame)}</svg>`), [frame]);
   const cls = [styles.fr, on ? styles.on : '', dragging ? styles.dragging : '', drop === 'before' ? styles.before : '', drop === 'after' ? styles.after : ''].filter(Boolean).join(' ');
   return (
     <button type="button" className={cls} data-frame-id={frame.id} aria-label={`Frame ${index + 1}`} aria-current={on ? 'true' : undefined}
@@ -35,7 +35,7 @@ const FrameButton = memo(function FrameButton({ frame, index, on, drop, dragging
         e.preventDefault();
         onMove(index, index + (e.key === 'ArrowLeft' ? -1 : 1));
       }}>
-      <div {...svgMarkup(html)} />
+      <img src={src} alt="" draggable={false} />
       <span aria-hidden="true">{index + 1}</span>
     </button>
   );
@@ -45,8 +45,10 @@ interface Reorder { from: number; over: number }
 
 export function FrameStrip() {
   const live = useEditor(s => s.frames), fi = useEditor(s => s.fi), note = useEditor(s => currentFrame(s).note), currentId = useEditor(s => currentFrame(s).id);
-  // thumbnails catch up when a drag settles instead of re-drawing on every pointer move
-  const frames = useDeferredValue(live);
+  // The order and the current-frame ring follow the live list at once. Only the thumbnail pictures lag (deferred), so a drag
+  // of a character does not redraw them on every pointer move. A frame added a moment ago is shown at once, with its live art.
+  const deferred = useDeferredValue(live);
+  const art = new Map(deferred.map(f => [f.id, f]));
   const { setNote, addFrame, dupFrame, delFrame, moveFrame, selectFrame } = useEditor.getState();
   const list = useRef<HTMLDivElement>(null);
   // the drag session lives in a ref with window listeners, like the stage's. Only what is drawn goes in state.
@@ -119,9 +121,9 @@ export function FrameStrip() {
         <Button onClick={delFrame} disabled={live.length < 2}>Delete</Button>
       </div>
       <div ref={list} className={`${styles.frames} ${reorder ? styles.reordering : ''}`}>
-        {frames.map((f, i) => {
+        {live.map((f, i) => {
           const drop = reorder && i === reorder.over && reorder.over !== reorder.from ? (reorder.over < reorder.from ? 'before' : 'after') : null;
-          return <FrameButton key={f.id} frame={f} index={i} on={f.id === currentId} drop={drop} dragging={reorder?.from === i}
+          return <FrameButton key={f.id} frame={art.get(f.id) ?? f} index={i} on={f.id === currentId} drop={drop} dragging={reorder?.from === i}
             onPointerDown={onPointerDown} onClick={onClick} onMove={onMoveKey} />;
         })}
         <button type="button" className={`${styles.fr} ${styles.add}`} aria-label="Add frame" title="Add frame" onClick={addFrame}>+</button>
