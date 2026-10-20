@@ -43,7 +43,11 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
   let tx = x + w + 12;
   if (tx + 56 > box.bw) tx = Math.max(4, x - 68);
   const ty = Math.max(4, Math.min(y, box.bh - 240));
-  const above = y > 52, rtop = above ? y - 40 : y + h + 40, ltop = above ? y - 28 : y + h;
+  // the round rotate handle goes above the box, else below it (if that stays inside the stage), else beside it
+  const place: 'above' | 'below' | 'right' | 'left' =
+    y > 52 ? 'above' : y + h + 44 < box.bh ? 'below' : x + w + 44 < box.bw ? 'right' : 'left';
+  const rot = { above: { left: x + w / 2, top: y - 40 }, below: { left: x + w / 2, top: y + h + 40 },
+    right: { left: x + w + 40, top: y + h / 2 }, left: { left: x - 40, top: y + h / 2 } }[place];
   return (
     <div className={styles.overlay}>
       <div className={styles.selbox} style={{ left: f1(x), top: f1(y), width: f1(w), height: f1(h) }}>
@@ -53,9 +57,9 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
             onPointerDown={e => onHandleDown(e, 'scale')} />
         ))}
       </div>
-      <i className={styles.rotline} style={{ left: f1(x + w / 2 - 1), top: f1(ltop) }} />
+      {(place === 'above' || place === 'below') && <i className={styles.rotline} style={{ left: f1(x + w / 2 - 1), top: f1(place === 'above' ? y - 28 : y + h) }} />}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only drag handle. The keyboard route is [ and ] (and double-click or the toolbar to reset). */}
-      <i role="presentation" className={styles.rot} style={{ left: f1(x + w / 2), top: f1(rtop) }} title="Rotate. Shift snaps to 15°, double-click resets. Keys: [ and ]"
+      <i role="presentation" className={styles.rot} style={{ left: f1(rot.left), top: f1(rot.top) }} title="Rotate. Shift snaps to 15°, double-click resets. Keys: [ and ]"
         onPointerDown={e => onHandleDown(e, 'rotate')} onDoubleClick={resetRotation}>
         <Icon name="rotate" />
       </i>

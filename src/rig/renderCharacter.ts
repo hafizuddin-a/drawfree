@@ -51,6 +51,7 @@ export function charSVG(c: Character): string {
     arm('aL') + head + arm('aR');
 }
 
+export const propDef = (id: string) => propOf(id);
 export const propSVG = (p: { prop: string } & PropArgs): string => propOf(p.prop).draw(p);
 
 /** items that cannot face the other way (speech bubbles) */

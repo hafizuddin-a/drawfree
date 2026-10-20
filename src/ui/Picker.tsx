@@ -2,17 +2,18 @@ import { type KeyboardEvent, type MouseEvent, type ReactNode, memo, useDeferredV
 import type { Character, PartInfo } from '../types';
 import { charTarget, currentFrame, selectedItem, useEditor } from '../state/store';
 import { SECS, SEARCHABLE, TABS, isListSection, type ColorSection, type ListSection, type SectionId } from './sections';
-import { lookKey, thumbSVG } from './thumbs';
+import { lookKey, thumbSrc } from './thumbs';
 import { Icon } from './icons';
 import { Tabs } from './Tabs';
-import { svgMarkup } from './markup';
 import styles from './Picker.module.css';
 
-interface ThumbProps { sec: SectionId; id: string; name: string; html: string; on: boolean; tabIndex: 0 | -1; onPick: (e: MouseEvent<HTMLButtonElement>) => void }
-const Thumb = memo(function Thumb({ sec, id, name, html, on, tabIndex, onPick }: ThumbProps) {
+interface ThumbProps { sec: SectionId; id: string; name: string; src: string; on: boolean; tabIndex: 0 | -1; onPick: (e: MouseEvent<HTMLButtonElement>) => void }
+const Thumb = memo(function Thumb({ sec, id, name, src, on, tabIndex, onPick }: ThumbProps) {
   return (
     <button type="button" className={`${styles.th} ${on ? styles.on : ''}`} data-sec={sec} data-id={id} title={name} aria-label={name}
-      aria-pressed={on} tabIndex={tabIndex} onClick={onPick} {...svgMarkup(html)} />
+      aria-pressed={on} tabIndex={tabIndex} onClick={onPick}>
+      <img src={src} alt="" draggable={false} />
+    </button>
   );
 });
 
@@ -56,7 +57,7 @@ function ThumbSection({ sec, ctx, items, wide }: { sec: ListSection; ctx: Ctx; i
       <h3>{sec.title}</h3>
       <Grid label={sec.title} wide={wide}>
         {items.map((o, i) => (
-          <Thumb key={o.id} sec={sec.id} id={o.id} name={o.name} html={thumbSVG(sec, o, ctx.base, ctx.baseKey, ctx.bg)} on={onFlags[i]}
+          <Thumb key={o.id} sec={sec.id} id={o.id} name={o.name} src={thumbSrc(sec, o, ctx.base, ctx.baseKey, ctx.bg)} on={onFlags[i]}
             tabIndex={onFlags[i] || (!anyOn && i === 0) ? 0 : -1} onPick={pick} />
         ))}
       </Grid>

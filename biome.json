@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-	"files": { "includes": ["src/**", "tools/**", "vite.config.ts"] },
+	"files": { "includes": ["src/**", "tools/**", "e2e/**", "vite.config.ts", "playwright.config.ts"] },
 	"formatter": { "enabled": false },
 	"assist": { "enabled": false },
 	"linter": {

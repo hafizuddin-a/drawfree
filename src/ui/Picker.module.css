@@ -12,7 +12,7 @@
 .wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .th { aspect-ratio: 1; border: 2px solid transparent; border-radius: 12px; background: var(--thumb); padding: 2px; display: grid; place-items: center; min-width: 0; }
 .wide .th { aspect-ratio: 16 / 9; }
-.th svg { width: 100%; height: 100%; display: block; }
+.th img { width: 100%; height: 100%; display: block; pointer-events: none; }
 .th:hover { border-color: var(--accent); }
 .th.on { background: var(--thumb-on); border-color: var(--accent); }
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
