@@ -30,9 +30,9 @@ export function App() {
       e.preventDefault(); depth = 0; setDropping(false);
       void openProjectFile(e.dataTransfer?.files[0]);
     };
-    window.addEventListener('dragenter', enter); window.addEventListener('dragleave', leave);
-    window.addEventListener('dragover', over); window.addEventListener('drop', drop);
-    return () => { window.removeEventListener('dragenter', enter); window.removeEventListener('dragleave', leave); window.removeEventListener('dragover', over); window.removeEventListener('drop', drop); };
+    const handlers = { dragenter: enter, dragleave: leave, dragover: over, drop } as const;
+    for (const [type, fn] of Object.entries(handlers)) window.addEventListener(type, fn as EventListener);
+    return () => { for (const [type, fn] of Object.entries(handlers)) window.removeEventListener(type, fn as EventListener); };
   }, []);
 
   return (

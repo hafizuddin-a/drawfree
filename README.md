@@ -9,6 +9,7 @@ Build storyboard frames from full-body line-art characters. Swap hair, outfits a
 ```
 npm install
 npm run dev        # Vite dev server
+npm run lint       # Biome
 npm test           # unit, store, persistence and UI tests
 npm run ci         # everything CI runs
 npm run sheet      # contact sheet of every part, to art-sheet.png
@@ -35,7 +36,7 @@ Cloudflare Pages is the fallback: `npm run build && npx wrangler pages deploy di
 
 ### CI
 
-- `.github/workflows/ci.yml` runs on every pull request and push to `main`: `npm ci`, then `npm run ci` (typecheck, tests, build, size and source-rule check). Pull requests from this repo also get a preview URL, posted as a PR comment, from a version upload to the staging Worker.
+- `.github/workflows/ci.yml` runs on every pull request and push to `main`: `npm ci`, then `npm run ci` (lint, typecheck, tests, build, size and source-rule check). Pull requests from this repo also get a preview URL, posted as a PR comment, from a version upload to the staging Worker.
 - `.github/workflows/deploy.yml` deploys `main` to staging on every merge. Production is a manual run (Actions, Deploy, Run workflow, choose production). Add required reviewers to the `production` environment in GitHub for an approval step.
 - Set two repository secrets: `CLOUDFLARE_API_TOKEN` (create it from the "Edit Cloudflare Workers" template) and `CLOUDFLARE_ACCOUNT_ID`. Never commit them.
 

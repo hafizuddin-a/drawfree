@@ -2,7 +2,7 @@ import type { PropPart } from '../types';
 import { INK, esc, ln, shp, tags } from './draw';
 
 /** greedy word wrap, at most 5 lines */
-export const wrapText = (t: string | undefined, n: number): string[] => {
+const wrapText = (t: string | undefined, n: number): string[] => {
   const out: string[] = [];
   let cur = '';
   String(t || '').split(/\s+/).forEach(w => {

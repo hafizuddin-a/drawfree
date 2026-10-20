@@ -22,7 +22,7 @@ export const EAR = ln('M-27,-216 C-37,-217 -37,-199 -27,-200');
 export const torsoPath = (h: number): string =>
   `M-33,-167 C-20,-171 20,-171 33,-167 C43,-164 43,-150 41,-138 L32,-60 L33,${h} L-33,${h} L-32,-60 L-41,-138 C-43,-150 -43,-164 -33,-167 Z`;
 
-export function pointAt(pts: readonly Vec[], dist: number): Vec {
+function pointAt(pts: readonly Vec[], dist: number): Vec {
   let left = dist;
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i], seg = Math.hypot(b[0] - a[0], b[1] - a[1]);

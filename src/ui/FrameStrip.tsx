@@ -4,6 +4,7 @@ import { itemSVG } from '../rig/renderCharacter';
 import { frameBG } from '../scenes/scenes';
 import { currentFrame, useEditor } from '../state/store';
 import { Button } from './Button';
+import { svgMarkup } from './markup';
 import styles from './FrameStrip.module.css';
 
 /** the frame's art for a thumbnail: background, scene and items, without any editor chrome */
@@ -15,7 +16,7 @@ const FrameButton = memo(function FrameButton({ frame, index, on }: { frame: Fra
   return (
     <button type="button" className={`${styles.fr} ${on ? styles.on : ''}`} aria-label={`Frame ${index + 1}`} aria-current={on ? 'true' : undefined}
       onClick={() => selectFrame(index)}>
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <div {...svgMarkup(html)} />
       <span aria-hidden="true">{index + 1}</span>
     </button>
   );

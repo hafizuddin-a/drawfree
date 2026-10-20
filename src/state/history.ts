@@ -4,7 +4,7 @@ import type { StoreApi } from 'zustand';
 import type { Frame } from '../types';
 import type { EditorState } from './store';
 
-export interface Snapshot { frames: Frame[]; fi: number }
+interface Snapshot { frames: Frame[]; fi: number }
 export interface HistorySlice {
   past: Snapshot[];
   future: Snapshot[];

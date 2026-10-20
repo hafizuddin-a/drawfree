@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { currentFrame, useEditor } from '../state/store';
 import { buildFrameExport, type ExportFormat, type ExportOptions } from '../export/frame';
 import { downloadBlob } from '../export/download';
@@ -15,7 +15,6 @@ const SIZES: ReadonlyArray<[1 | 2 | 3, string]> = [[1, '960 × 540'], [2, '1920 
 export function ExportDialog({ onClose, onCopyFallback }: Props) {
   const [o, setO] = useState<ExportOptions>(loadExportPrefs);
   const [status, setStatus] = useState(''), [busy, setBusy] = useState(false);
-  const go = useRef<HTMLButtonElement>(null);
   const fi = useEditor(s => s.fi);
   const change = (patch: Partial<ExportOptions>) => { const n = { ...o, ...patch }; setO(n); saveExportPrefs(n); };
 
@@ -34,7 +33,7 @@ export function ExportDialog({ onClose, onCopyFallback }: Props) {
   };
 
   return (
-    <Dialog onClose={onClose} labelledBy="ex-title" narrow initialFocus={go}>
+    <Dialog onClose={onClose} labelledBy="ex-title" narrow>
       <strong id="ex-title" className={styles.title}>Export Frame {fi + 1}</strong>
       <fieldset className={styles.opts}>
         <legend>Format</legend>
@@ -53,7 +52,7 @@ export function ExportDialog({ onClose, onCopyFallback }: Props) {
       <div className={dialogActions}>
         {o.fmt === 'svg' && <Button onClick={() => { onClose(); copyFrameSvg(o.transparent, onCopyFallback); }}>Copy SVG</Button>}
         <Button onClick={onClose}>Close</Button>
-        <Button primary ref={go} disabled={busy} onClick={run}>Download {o.fmt.toUpperCase()}</Button>
+        <Button primary data-autofocus disabled={busy} onClick={run}>Download {o.fmt.toUpperCase()}</Button>
       </div>
     </Dialog>
   );

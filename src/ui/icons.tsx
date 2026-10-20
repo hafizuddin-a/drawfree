@@ -1,4 +1,6 @@
-/* Icon paths are static, trusted strings, so they are injected as markup. */
+import { svgMarkup } from './markup';
+
+/* Icon paths are static strings in this file, so they are injected as markup. */
 const ICONS = {
   hair: '<path d="M6 20v-8a6 6 0 0112 0v8"/><path d="M8.5 11.5c3 0 5-1.4 6.5-3.5"/>',
   face: '<circle cx="12" cy="12" r="8.5"/><path d="M9 10v1.4M15 10v1.4"/><path d="M8.8 14.5c1.8 2 4.6 2 6.4 0"/>',
@@ -23,5 +25,5 @@ const ICONS = {
 export type IconName = keyof typeof ICONS;
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
-  return <svg viewBox="0 0 24 24" aria-hidden="true" className={className} dangerouslySetInnerHTML={{ __html: ICONS[name] }} />;
+  return <svg viewBox="0 0 24 24" aria-hidden="true" className={className} {...svgMarkup(ICONS[name])} />;
 }

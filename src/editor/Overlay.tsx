@@ -28,8 +28,8 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     setBox(prev => (same(prev, next) ? prev : next));
   }, [it, stageRef, boardRef]);
 
-  // after every render of the stage, so the box follows drags, scaling and pose changes
-  useLayoutEffect(() => { measure(); }, [measure, pose]);
+  // after every render, so the box follows drags, scaling and pose changes. setBox ignores unchanged boxes, so this cannot loop.
+  useLayoutEffect(() => { measure(); });
   useLayoutEffect(() => {
     const board = boardRef.current;
     if (!board || typeof ResizeObserver === 'undefined') return;
@@ -49,12 +49,13 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
       <div className={styles.selbox} style={{ left: f1(x), top: f1(y), width: f1(w), height: f1(h) }}>
         {/* in Pose mode the corners would sit on top of raised hands, so scaling waits until Pose is turned off */}
         {!pose && (['nw', 'ne', 'sw', 'se'] as const).map(c => (
-          <i key={c} className={styles.corner} data-c={c} style={{ top: c[0] === 'n' ? '0' : '100%', left: c[1] === 'w' ? '0' : '100%' }}
+          <i key={c} role="presentation" className={styles.corner} data-c={c} style={{ top: c[0] === 'n' ? '0' : '100%', left: c[1] === 'w' ? '0' : '100%' }}
             onPointerDown={e => onHandleDown(e, 'scale')} />
         ))}
       </div>
       <i className={styles.rotline} style={{ left: f1(x + w / 2 - 1), top: f1(ltop) }} />
-      <i className={styles.rot} style={{ left: f1(x + w / 2), top: f1(rtop) }} title="Rotate. Shift snaps to 15°, double-click resets. Keys: [ and ]"
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only drag handle. The keyboard route is [ and ] (and double-click or the toolbar to reset). */}
+      <i role="presentation" className={styles.rot} style={{ left: f1(x + w / 2), top: f1(rtop) }} title="Rotate. Shift snaps to 15°, double-click resets. Keys: [ and ]"
         onPointerDown={e => onHandleDown(e, 'rotate')} onDoubleClick={resetRotation}>
         <Icon name="rotate" />
       </i>

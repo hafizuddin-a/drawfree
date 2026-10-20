@@ -10,17 +10,18 @@ Stack: Vite, React 18, TypeScript (strict), Zustand. Static site on Cloudflare W
 npm install
 npm run dev              # Vite dev server
 npm run build            # tsc --noEmit, then vite build into dist/
+npm run lint             # Biome: no `any`, hook dependencies, unused code, a11y, console
 npm run typecheck        # tsc --noEmit
 npm test                 # Vitest + jsdom (unit, store, persistence, UI smoke)
-npm run check            # tools/check.js on dist/: size budget, no `any`, parts/rig/scenes stay pure
-npm run ci               # what CI runs: typecheck, test, build, check
+npm run check            # tools/check.js on dist/: size budget, parts/rig/scenes stay pure
+npm run ci               # what CI runs: lint, typecheck, test, build, check
 npm run sheet            # render a contact sheet of every part to art-sheet.png (use this to check art changes)
 npm run deploy:staging   # build + check + wrangler deploy --env staging (drawfree-staging)
 npm run deploy           # same for production (drawfree). Ask before running; staging first
 npm run deploy:preview   # wrangler versions upload to staging, no traffic change (CI does this per PR)
 ```
 
-Run `npm run ci` before committing. Run `npm run sheet` and look at it after any art change. jsdom has no canvas, so PNG encoding is not covered by `npm test`: check it in a real browser (see Gotchas).
+Run `npm run ci` before committing. Biome suppressions (`biome-ignore`) must carry a reason; there are a handful, all deliberate (pointer-only drag handles, a roving-tabindex group, the TypeScript 7 regex). Run `npm run sheet` and look at it after any art change. jsdom has no canvas, so PNG encoding is not covered by `npm test`: check it in a real browser (see Gotchas).
 
 ## Layout
 
@@ -37,9 +38,10 @@ src/
   App.tsx main.tsx boot.ts styles/tokens.css
 public/_headers      response headers (copied to dist/)
 tools/               sheet.ts (contact sheet, run with tsx), check.js (post-build rules)
+biome.json           lint rules (linting only; there is no formatter)
 ```
 
-Hard rule: nothing in `src/parts`, `src/rig` or `src/scenes` may import React or touch the DOM. They take data in and return SVG strings out. `tools/check.js` enforces it, and also bans `any`.
+Hard rule: nothing in `src/parts`, `src/rig` or `src/scenes` may import React or touch the DOM. They take data in and return SVG strings out. `tools/check.js` enforces it. Biome bans `any`.
 
 ### Character model
 
@@ -67,7 +69,8 @@ Add an entry to the right list (for example `HAIR` in `src/parts/hair.ts`) with 
 - Pose handles and hit areas exist only in the editor. `itemSVG` (export, thumbnails) emits no editor chrome. While Pose is on, the scale corners are hidden (they sat on raised hands).
 - The ground shadow shows only when rotation is under 8 degrees.
 - The picker and frame strip use `useDeferredValue`, so they catch up when a drag settles instead of re-rendering per pointer move. Thumbnails are cached in `ui/thumbs.ts` by section, part and the character's look.
-- Dialogs use `ui/Dialog.tsx` (focus moves in, Tab is trapped, Esc and backdrop close, focus returns). Never use `alert`, `confirm` or `prompt`: use the toast and dialogs.
+- Dialogs use `ui/Dialog.tsx` (focus moves in, to the element marked `data-autofocus` or the first control; Tab is trapped, Esc and backdrop close, focus returns). Never use `alert`, `confirm` or `prompt`: use the toast and dialogs.
+- **Markup from strings.** Art is SVG strings injected with `svgMarkup()` (`ui/markup.ts`, the only place `dangerouslySetInnerHTML` is used). Only pass strings built by the pure part, rig and scene functions, which escape user text with `esc()`. Never pass user input, file contents or anything not drawn by our own code.
 - Autosave (`state/persist.ts`): key `drawfree.v1`, debounced 500 ms, flushed on `pagehide` and when hidden, never throws, warns once if storage is blocked. It reads the old prototype shape (`type`/`kind` items) and the older `inkframe.v1` key.
 
 ## Project files
@@ -102,3 +105,4 @@ Also before launch: self-host Figtree and Bricolage Grotesque (then drop the Goo
 - jsdom stubs (`src/test/setup.ts`) fake `getScreenCTM`, `DOMPoint` and layout, so tests prove the logic, not the geometry. Geometry (drag lands on the pointer, selection box fits) was checked in a real browser.
 - The old Claude artifact build (`dist/artifact.html`) is gone with the vanilla build. Downloads are blocked inside Claude's artifact viewer; Copy SVG (with its manual-copy dialog) is the fallback.
 - TypeScript 7 rejects some regex literals the older compiler accepted; `XML_ILLEGAL` is built with `new RegExp(string)` for that reason.
+- Linting is Biome, not ESLint: `typescript-eslint` does not support TypeScript 7 yet (peer range stops below 6.1). Revisit if that changes; do not force the install.
