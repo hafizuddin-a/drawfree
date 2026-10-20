@@ -10,7 +10,7 @@ if (typeof document !== 'undefined') {
     matrixTransform() { return { x: this.x, y: this.y }; }
   }
   Object.defineProperty(globalThis, 'DOMPoint', { value: FakePoint, configurable: true });
-  const matrix = { inverse() { return matrix; } };
+  const matrix = { a: 1, inverse() { return matrix; } };
   Object.defineProperty(SVGElement.prototype, 'getScreenCTM', { value: () => matrix, configurable: true });
   Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
     value: () => ({ x: 100, y: 80, left: 100, top: 80, width: 120, height: 300, right: 220, bottom: 380, toJSON: () => ({}) }), configurable: true, writable: true

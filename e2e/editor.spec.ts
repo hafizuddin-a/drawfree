@@ -231,3 +231,71 @@ test.describe('touch targets', () => {
     expect((await box(dot)).width).toBeGreaterThanOrEqual(17);
   });
 });
+
+test.describe('zoom and pan', () => {
+  const viewBox = (page: import('@playwright/test').Page) => page.locator('#stage').getAttribute('viewBox');
+  const FULL = '0 0 960 540';
+
+  test('the zoom buttons zoom in and out, and 0 resets', async ({ page }) => {
+    expect(await viewBox(page)).toBe(FULL);
+    await page.getByRole('button', { name: 'Zoom in' }).click(); await page.getByRole('button', { name: 'Zoom in' }).click();
+    expect(await viewBox(page)).not.toBe(FULL);
+    await expect(page.getByRole('button', { name: /Reset zoom, now 156 percent/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+    await page.getByRole('button', { name: /Reset zoom/ }).click();
+    expect(await viewBox(page)).toBe(FULL);
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await page.locator('body').press('0');
+    expect(await viewBox(page)).toBe(FULL);
+  });
+
+  test('Ctrl and the wheel zoom about the pointer', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'no wheel on a phone');
+    const c = await centre(page.locator('#stage'));
+    await page.mouse.move(c.x, c.y);
+    await page.keyboard.down('Control'); await page.mouse.wheel(0, -400); await page.keyboard.up('Control');
+    const [, , w] = (await viewBox(page))?.split(' ').map(Number) ?? [];
+    expect(w).toBeLessThan(900);
+  });
+
+  test('Space and drag pan the view without moving anything', async ({ page }) => {
+    await page.getByRole('button', { name: 'Zoom in' }).click(); await page.getByRole('button', { name: 'Zoom in' }).click();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());         // Space on a focused button would press it
+    const before = (await viewBox(page))?.split(' ').map(Number) ?? [], t0 = await transformOf(page);
+    const c = await centre(page.locator('#stage'));
+    await page.keyboard.down('Space');
+    await drag(page, c, { x: c.x - 80, y: c.y });
+    await page.keyboard.up('Space');
+    const after = (await viewBox(page))?.split(' ').map(Number) ?? [];
+    expect(after[0]).toBeGreaterThan(before[0]); expect(after[2]).toBe(before[2]);                  // moved, same zoom
+    expect(await transformOf(page)).toBe(t0);                                                      // no character moved
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  });
+
+  test('zoomed in, handles stay 44 px and a hand still lands on the pointer', async ({ page }) => {
+    await page.getByRole('button', { name: 'Zoom in' }).click(); await page.getByRole('button', { name: 'Zoom in' }).click();
+    await selectFirstChar(page);
+    await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
+    const hand = page.locator('.jh.hitc[data-limb="aL"]');
+    expect((await box(hand)).width).toBeGreaterThanOrEqual(43);
+    const from = await centre(hand), to = { x: from.x - 12, y: from.y - 40 };
+    await drag(page, from, to);
+    const now = await centre(hand);
+    expect(Math.hypot(now.x - to.x, now.y - to.y)).toBeLessThan(8);
+  });
+
+  test('the selection box follows the character after zooming', async ({ page }) => {
+    // measured the way the app does it: getBoundingClientRect of the body (Playwright's boundingBox also counts the outline's stroke)
+    const gap = () => page.evaluate(() => {
+      const s = (document.querySelector('[class*="selbox"]') as HTMLElement).getBoundingClientRect(), g = (document.querySelector('#stage .item .body') as SVGGElement).getBoundingClientRect();
+      return Math.max(Math.abs(s.x - (g.x - 6)), Math.abs(s.y - (g.y - 6)), Math.abs(s.width - (g.width + 12)), Math.abs(s.height - (g.height + 12)));
+    });
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await selectFirstChar(page);
+    expect(await gap()).toBeLessThan(1.5);
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    expect(await gap()).toBeLessThan(1.5);                                          // the box re-measures when the view changes
+    await page.keyboard.press('ArrowRight'); await page.getByRole('button', { name: 'Zoom out' }).click();
+    expect(await gap()).toBeLessThan(1.5);
+  });
+});

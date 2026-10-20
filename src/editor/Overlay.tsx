@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
+  useEditor(s => s.view);   // re-measure when the view moves
   const it = useEditor(selectedItem), pose = useEditor(s => s.pose), resetRotation = useEditor(s => s.resetRotation);
   const [box, setBox] = useState<Box | null>(null);
 
