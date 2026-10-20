@@ -1,4 +1,4 @@
-import { forwardRef, memo, useMemo, type PointerEvent as ReactPointerEvent } from 'react';
+import { type PointerEvent as ReactPointerEvent, type RefObject, forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { Character, Item } from '../types';
 import { bodyTransform, itemArt, itemTransform, propDef } from '../rig/renderCharacter';
 import { rig } from '../rig/poses';
@@ -7,20 +7,24 @@ import { frameBG } from '../scenes/scenes';
 import { currentFrame, useEditor } from '../state/store';
 import { svgMarkup } from '../ui/markup';
 
-/* Pose handles exist only in the editor. They are sized against the item's scale so they stay the same size on screen,
-   and each has a larger invisible circle (the real hit target) so a finger never loses it. */
-function PoseHandles({ c }: { c: Character }) {
-  const r = rig(c), k = 1 / c.s;
+/* Pose handles exist only in the editor. They are sized in SCREEN pixels, not stage units: `px` is how many screen pixels one
+   stage unit is (about 0.35 on a phone, 1.3 on a wide desktop), and an item's own scale shrinks them further, so both are divided out.
+   Each handle has a larger invisible circle that is the real hit target: 44 px across for the hand or foot, 32 px for the elbow or knee,
+   so a finger never loses a handle. */
+const HAND_R = 22, JOINT_R = 16, HAND_DOT = 9, JOINT_DOT = 6;
+
+function PoseHandles({ c, px }: { c: Character; px: number }) {
+  const r = rig(c), k = 1 / (px * c.s);
   return (
     <>
       {(Object.keys(r) as Array<keyof typeof r>).map(l => {
         const [, elbow, end] = r[l];
         return (
           <g key={l}>
-            <circle className="bh hitc" data-limb={l} cx={f1(elbow[0])} cy={f1(elbow[1])} r={f1(18 * k)}><title>Click to flip the bend</title></circle>
-            <circle cx={f1(elbow[0])} cy={f1(elbow[1])} r={f1(6 * k)} style={{ fill: '#fff', stroke: 'var(--accent)', strokeWidth: f1(2.2 * k), pointerEvents: 'none' }} />
-            <circle className="jh hitc" data-limb={l} cx={f1(end[0])} cy={f1(end[1])} r={f1(22 * k)}><title>Drag to move</title></circle>
-            <circle cx={f1(end[0])} cy={f1(end[1])} r={f1(11 * k)} style={{ fill: 'var(--accent)', fillOpacity: 0.85, stroke: '#fff', strokeWidth: f1(2.5 * k), pointerEvents: 'none' }} />
+            <circle className="bh hitc" data-limb={l} cx={f1(elbow[0])} cy={f1(elbow[1])} r={f1(JOINT_R * k)}><title>Click to flip the bend</title></circle>
+            <circle cx={f1(elbow[0])} cy={f1(elbow[1])} r={f1(JOINT_DOT * k)} style={{ fill: '#fff', stroke: 'var(--accent)', strokeWidth: f1(2.2 * k), pointerEvents: 'none' }} />
+            <circle className="jh hitc" data-limb={l} cx={f1(end[0])} cy={f1(end[1])} r={f1(HAND_R * k)}><title>Drag to move</title></circle>
+            <circle cx={f1(end[0])} cy={f1(end[1])} r={f1(HAND_DOT * k)} style={{ fill: 'var(--accent)', fillOpacity: 0.85, stroke: '#fff', strokeWidth: f1(2.5 * k), pointerEvents: 'none' }} />
           </g>
         );
       })}
@@ -29,7 +33,7 @@ function PoseHandles({ c }: { c: Character }) {
 }
 
 /** One item. Memoised on the item itself, so only the item being dragged re-renders. */
-const ItemView = memo(function ItemView({ item, handles, label, selected }: { item: Item; handles: boolean; label: string; selected: boolean }) {
+const ItemView = memo(function ItemView({ item, handles, label, selected, px }: { item: Item; handles: boolean; label: string; selected: boolean; px: number }) {
   const art = useMemo(() => itemArt(item), [item]);
   const isChar = item.kind === 'char';
   return (
@@ -42,7 +46,7 @@ const ItemView = memo(function ItemView({ item, handles, label, selected }: { it
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); useEditor.getState().select(item.id); } }} />
       <g className="body" transform={bodyTransform(item)}>
         <g {...svgMarkup(art)} />
-        {handles && isChar && <PoseHandles c={item} />}
+        {handles && isChar && <PoseHandles c={item} px={px} />}
       </g>
     </g>
   );
@@ -57,16 +61,38 @@ function labelOf(items: readonly Item[], i: number): string {
 
 interface Props { onPointerDown: (e: ReactPointerEvent<SVGSVGElement>) => void }
 
+/** Screen pixels per stage unit, kept current as the stage is resized. Rounded so tiny changes do not re-render every item. */
+function useStagePx(stage: RefObject<SVGSVGElement | null>): number {
+  const [px, setPx] = useState(1);
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const measure = () => {
+      const a = el.getScreenCTM()?.a;
+      if (typeof a === 'number' && Number.isFinite(a) && a > 0) setPx(Math.round(a * 100) / 100);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stage]);
+  return px;
+}
+
 export const Stage = forwardRef<SVGSVGElement, Props>(function Stage({ onPointerDown }, ref) {
+  const svg = useRef<SVGSVGElement | null>(null);
+  const attach = (el: SVGSVGElement | null) => { svg.current = el; if (typeof ref === 'function') ref(el); else if (ref) ref.current = el; };
   const items = useEditor(s => currentFrame(s).items), bgColor = useEditor(s => currentFrame(s).bg), scene = useEditor(s => currentFrame(s).scene);
   const sel = useEditor(s => s.sel), pose = useEditor(s => s.pose);
+  const px = useStagePx(svg);
   // the background is redrawn only when it changes, not on every drag
   const bg = useMemo(() => frameBG({ bg: bgColor, scene }, true), [bgColor, scene]);
   return (
     // biome-ignore lint/a11y/useSemanticElements: the stage is an SVG, which cannot be a fieldset. role=group (not img) because its items are focusable.
-    <svg id="stage" ref={ref} viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
+    <svg id="stage" ref={attach} viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
       <g {...svgMarkup(bg)} />
-      {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel} selected={it.id === sel} label={labelOf(items, i)} />)}
+      {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel} selected={it.id === sel} label={labelOf(items, i)} px={px} />)}
     </svg>
   );
 });
