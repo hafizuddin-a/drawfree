@@ -8,6 +8,7 @@ import { ik } from '../rig/ik';
 import { presetPose, rig } from '../rig/poses';
 import { newCharacter } from '../rig/renderCharacter';
 import { DEFAULT_NAME, cleanName, type ProjectState } from '../export/project';
+import { DEFAULT_VIEW, type Pt, type View, clampView, panBy as panView, zoomAt } from '../editor/view';
 import { historyActions, type HistorySlice } from './history';
 import { newId, seedFrames } from './seed';
 
@@ -27,9 +28,16 @@ export interface EditorState extends HistorySlice {
   /** pose handles are shown for the selected character */
   pose: boolean;
   toast: Toast | null;
+  /** the stage's zoom and pan. Not in undo history and not saved. */
+  view: View;
 
   showToast: (msg: string, ms?: number) => void;
   select: (id: string | null) => void;
+  /** zooms about a frame point (default: the centre of the view) */
+  zoomBy: (factor: number, at?: Pt) => void;
+  panBy: (dx: number, dy: number) => void;
+  panTo: (cx: number, cy: number) => void;
+  resetView: () => void;
   setTab: (t: TabId) => void;
   setQuery: (q: string) => void;
   setName: (name: string) => void;
@@ -69,11 +77,11 @@ export interface EditorState extends HistorySlice {
 }
 
 /* ---------- selectors and helpers ---------- */
-type View = Pick<EditorState, 'frames' | 'fi' | 'sel'>;
+type Selection = Pick<EditorState, 'frames' | 'fi' | 'sel'>;
 export const currentFrame = (s: Pick<EditorState, 'frames' | 'fi'>): Frame => s.frames[s.fi];
-export const selectedItem = (s: View): Item | null => (s.sel ? currentFrame(s).items.find(i => i.id === s.sel) ?? null : null);
+export const selectedItem = (s: Selection): Item | null => (s.sel ? currentFrame(s).items.find(i => i.id === s.sel) ?? null : null);
 /** the character the picker edits: the selected one, or the only one in the frame */
-export function charTarget(s: View): Character | null {
+export function charTarget(s: Selection): Character | null {
   const it = selectedItem(s);
   if (it && it.kind === 'char') return it;
   const cs = currentFrame(s).items.filter((i): i is Character => i.kind === 'char');
@@ -92,7 +100,7 @@ let toastSeq = 0;
 
 const initialState = () => ({
   name: DEFAULT_NAME, aspect: '16:9' as Aspect, frames: seedFrames(), fi: 0, sel: null as string | null,
-  tab: 'hair' as TabId, q: '', pose: false, toast: null as Toast | null, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
+  tab: 'hair' as TabId, q: '', pose: false, toast: null as Toast | null, view: DEFAULT_VIEW, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
 });
 
 export const useEditor = create<EditorState>()((set, get) => {
@@ -116,6 +124,10 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     showToast: (msg, ms = 2200) => set({ toast: { id: ++toastSeq, msg, ms } }),
     select: id => set(s => (s.sel === id ? s : { sel: id })),
+    zoomBy: (factor, at) => set(s => ({ view: zoomAt(s.view, factor, at ?? { x: s.view.cx, y: s.view.cy }) })),
+    panBy: (dx, dy) => set(s => ({ view: panView(s.view, dx, dy) })),
+    panTo: (cx, cy) => set(s => ({ view: clampView({ ...s.view, cx, cy }) })),
+    resetView: () => set({ view: DEFAULT_VIEW }),
     setTab: t => set({ tab: t, q: '' }),
     setQuery: q => set({ q }),
     setName: name => set({ name: cleanName(name) }),
@@ -243,7 +255,7 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     loadProject: p => {
       h.snap();
-      set({ frames: p.frames, fi: 0, sel: null, name: p.name, aspect: p.aspect });
+      set({ frames: p.frames, fi: 0, sel: null, name: p.name, aspect: p.aspect, view: DEFAULT_VIEW });
     },
     reset: () => {
       h.snap();

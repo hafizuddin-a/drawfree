@@ -1,4 +1,4 @@
-import { type PointerEvent as ReactPointerEvent, type RefObject, forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { type PointerEvent as ReactPointerEvent, type RefObject, forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Character, Item } from '../types';
 import { bodyTransform, itemArt, itemTransform, propDef } from '../rig/renderCharacter';
 import { rig } from '../rig/poses';
@@ -6,6 +6,7 @@ import { f1 } from '../parts/draw';
 import { frameBG } from '../scenes/scenes';
 import { currentFrame, useEditor } from '../state/store';
 import { svgMarkup } from '../ui/markup';
+import { viewBox } from './view';
 
 /* Pose handles exist only in the editor. They are sized in SCREEN pixels, not stage units: `px` is how many screen pixels one
    stage unit is (about 0.35 on a phone, 1.3 on a wide desktop), and an item's own scale shrinks them further, so both are divided out.
@@ -61,22 +62,21 @@ function labelOf(items: readonly Item[], i: number): string {
 
 interface Props { onPointerDown: (e: ReactPointerEvent<SVGSVGElement>) => void }
 
-/** Screen pixels per stage unit, kept current as the stage is resized. Rounded so tiny changes do not re-render every item. */
+/** Screen pixels per stage unit, kept current as the stage is resized or zoomed. Rounded so tiny changes do not re-render every item. */
 function useStagePx(stage: RefObject<SVGSVGElement | null>): number {
   const [px, setPx] = useState(1);
+  const measure = useCallback(() => {
+    const a = stage.current?.getScreenCTM()?.a;
+    if (typeof a === 'number' && Number.isFinite(a) && a > 0) setPx(Math.round(a * 100) / 100);   // setState ignores an unchanged value
+  }, [stage]);
+  useLayoutEffect(() => { measure(); });                      // after every render, so a zoom is picked up too
   useEffect(() => {
     const el = stage.current;
-    if (!el) return;
-    const measure = () => {
-      const a = el.getScreenCTM()?.a;
-      if (typeof a === 'number' && Number.isFinite(a) && a > 0) setPx(Math.round(a * 100) / 100);
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
+    if (!el || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [stage]);
+  }, [stage, measure]);
   return px;
 }
 
@@ -85,12 +85,12 @@ export const Stage = forwardRef<SVGSVGElement, Props>(function Stage({ onPointer
   const attach = (el: SVGSVGElement | null) => { svg.current = el; if (typeof ref === 'function') ref(el); else if (ref) ref.current = el; };
   const items = useEditor(s => currentFrame(s).items), bgColor = useEditor(s => currentFrame(s).bg), scene = useEditor(s => currentFrame(s).scene);
   const sel = useEditor(s => s.sel), pose = useEditor(s => s.pose);
-  const px = useStagePx(svg);
+  const view = useEditor(s => s.view), px = useStagePx(svg);
   // the background is redrawn only when it changes, not on every drag
   const bg = useMemo(() => frameBG({ bg: bgColor, scene }, true), [bgColor, scene]);
   return (
     // biome-ignore lint/a11y/useSemanticElements: the stage is an SVG, which cannot be a fieldset. role=group (not img) because its items are focusable.
-    <svg id="stage" ref={attach} viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
+    <svg id="stage" ref={attach} viewBox={viewBox(view)} preserveAspectRatio="xMidYMid meet" role="group" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
       <g {...svgMarkup(bg)} />
       {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel} selected={it.id === sel} label={labelOf(items, i)} px={px} />)}
     </svg>

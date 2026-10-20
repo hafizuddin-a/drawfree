@@ -550,3 +550,114 @@ describe('export: whole board', () => {
     expect(downloads[0].name).toBe('untitled-storyboard-frame-1.svg');
   });
 });
+
+describe('zoom and pan', () => {
+  const vb = () => document.querySelector('#stage')?.getAttribute('viewBox');
+  const wheel = (init: WheelEventInit) => {
+    const e = new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: 300, clientY: 200, ...init });
+    act(() => { document.querySelector('#stage')?.dispatchEvent(e); });
+    return e;
+  };
+
+  it('starts showing the whole frame; the buttons zoom in, out and reset', () => {
+    render(<App />);
+    expect(vb()).toBe('0 0 960 540');
+    expect((screen.getByRole('button', { name: /Reset zoom/ }) as HTMLButtonElement).disabled).toBe(true);
+    click('Zoom in'); expect(vb()).toBe('96 54 768 432');
+    expect(screen.getByRole('button', { name: /Reset zoom, now 125 percent/ }).textContent).toBe('125%');
+    click('Zoom out'); expect(vb()).toBe('0 0 960 540');
+    for (let i = 0; i < 12; i++) fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect((screen.getByRole('button', { name: 'Zoom in' }) as HTMLButtonElement).disabled).toBe(true);   // the ceiling
+    click(/Reset zoom/); expect(vb()).toBe('0 0 960 540');
+  });
+
+  it('Ctrl or Cmd plus the wheel zooms about the pointer and stops the page zooming; the plain wheel leaves the page alone', () => {
+    render(<App />);
+    expect(wheel({ deltaY: -100 }).defaultPrevented).toBe(false); expect(vb()).toBe('0 0 960 540');
+    const e = wheel({ deltaY: -100, ctrlKey: true });
+    expect(e.defaultPrevented).toBe(true); expect(st().view.zoom).toBeGreaterThan(1);
+    const z = st().view.zoom; wheel({ deltaY: 100, metaKey: true }); expect(st().view.zoom).toBeLessThan(z);
+  });
+
+  it('once zoomed in, the plain wheel pans', () => {
+    render(<App />);
+    st().zoomBy(2);
+    const c0 = st().view.cx, e = wheel({ deltaX: 40, deltaY: 0 });
+    expect(e.defaultPrevented).toBe(true); expect(st().view.cx).toBe(c0 + 40);
+  });
+
+  it('with nothing selected the keys move the view: + and - zoom, arrows pan, 0 resets', () => {
+    render(<App />);
+    fireEvent.keyDown(document.body, { key: '+' }); expect(st().view.zoom).toBe(1.25);
+    fireEvent.keyDown(document.body, { key: '-' }); expect(st().view.zoom).toBe(1);
+    st().zoomBy(2);
+    const c = st().view.cx;
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' }); expect(st().view.cx).toBe(c + 20);
+    fireEvent.keyDown(document.body, { key: 'ArrowLeft', shiftKey: true }); expect(st().view.cx).toBe(c - 80);
+    fireEvent.keyDown(document.body, { key: '0' }); expect(vb()).toBe('0 0 960 540');
+  });
+
+  it('with an item selected the same keys edit the item and leave the view alone', () => {
+    render(<App />);
+    selectFirstChar(); const s0 = items()[0].s;
+    fireEvent.keyDown(document.body, { key: '+' });
+    expect(items()[0].s).toBeGreaterThan(s0); expect(st().view.zoom).toBe(1);
+  });
+
+  it('typing in a field never zooms or pans', () => {
+    render(<App />);
+    fireEvent.keyDown(screen.getByLabelText('Scene note'), { key: '+' });
+    fireEvent.keyDown(screen.getByLabelText('Scene note'), { key: '0' });
+    expect(st().view.zoom).toBe(1);
+  });
+
+  it('Space and drag pans the view, and does not move the item under the pointer', () => {
+    render(<App />);
+    st().zoomBy(2);
+    const c0 = { x: st().view.cx, y: st().view.cy }, x0 = items()[0].x;
+    fireEvent.keyDown(window, { key: ' ' });
+    pointer(hits()[0], 'pointerdown', 300, 300); pointer(window, 'pointermove', 250, 280); pointer(window, 'pointerup', 250, 280);
+    fireEvent.keyUp(window, { key: ' ' });
+    expect(st().view.cx).toBe(c0.x + 50); expect(st().view.cy).toBe(c0.y + 20);
+    expect(items()[0].x).toBe(x0); expect(st().past).toHaveLength(0);
+    pointer(hits()[0], 'pointerdown', 300, 300); pointer(window, 'pointermove', 340, 300); pointer(window, 'pointermove', 360, 300); pointer(window, 'pointerup', 360, 300);
+    expect(items()[0].x).not.toBe(x0);                                         // with Space released it moves the item again
+  });
+
+  it('the middle mouse button pans too', () => {
+    render(<App />);
+    st().zoomBy(2); const c0 = st().view.cx;
+    act(() => { hits()[0].dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 300, clientY: 300, button: 1 })); });
+    pointer(window, 'pointermove', 280, 300); pointer(window, 'pointerup', 280, 300);
+    expect(st().view.cx).toBe(c0 + 20);
+  });
+
+  it('two fingers pinch to zoom, and the first finger does not start a drag', () => {
+    render(<App />);
+    const touch = (type: string, id: number, x: number, y: number, target: Element | Window) => act(() => {
+      const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+      Object.defineProperty(e, 'pointerType', { value: 'touch' }); Object.defineProperty(e, 'pointerId', { value: id });
+      target.dispatchEvent(e);
+    });
+    const x0 = items()[0].x;
+    touch('pointerdown', 1, 280, 300, hits()[0]);
+    touch('pointerdown', 2, 320, 300, hits()[0]);                              // second finger: pinch begins
+    touch('pointermove', 1, 240, 300, window); touch('pointermove', 2, 360, 300, window);   // fingers spread: 40 -> 120 px apart
+    expect(st().view.zoom).toBeGreaterThan(2);
+    expect(items()[0].x).toBe(x0); expect(st().past).toHaveLength(0);
+    const z = st().view.zoom;
+    touch('pointermove', 1, 280, 300, window); touch('pointermove', 2, 320, 300, window);   // pinch in
+    expect(st().view.zoom).toBeLessThan(z);
+    touch('pointerup', 1, 280, 300, window); touch('pointerup', 2, 320, 300, window);
+    const z2 = st().view.zoom;
+    touch('pointermove', 2, 500, 300, window);                                  // lifted fingers no longer zoom
+    expect(st().view.zoom).toBe(z2);
+  });
+
+  it('opening a project resets the view, and zoom is not an undo step or saved', () => {
+    render(<App />);
+    st().zoomBy(3); expect(st().past).toHaveLength(0);
+    st().loadProject({ name: 'x', aspect: '16:9', frames: [{ id: 'z', bg: '#ffffff', scene: 'none', note: '', items: [] }] });
+    expect(st().view.zoom).toBe(1);
+  });
+});
