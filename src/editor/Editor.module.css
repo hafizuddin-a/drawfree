@@ -10,7 +10,7 @@
 .rot { position: absolute; width: 28px; height: 28px; margin: -14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); color: var(--accent); display: grid; place-items: center; pointer-events: auto; cursor: grab; touch-action: none; }
 .rot::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
 .rot svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.rotline { position: absolute; width: 2px; height: 14px; background: var(--accent); }
+.rotline { position: absolute; width: 2px; height: 14px; margin-left: -1px; background: var(--accent); }
 .tb { position: absolute; width: 56px; padding: 6px 0; border-radius: 28px; background: var(--accent-btn); display: flex; flex-direction: column; align-items: center; pointer-events: auto; box-shadow: var(--shadow); }
 .tb button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; color: var(--accent-ink); display: grid; place-items: center; padding: 0; }
 .tb button:hover, .tb button.on { background: rgba(255, 255, 255, .28); }

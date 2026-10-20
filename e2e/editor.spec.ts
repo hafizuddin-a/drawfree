@@ -287,7 +287,7 @@ test.describe('zoom and pan', () => {
   test('the selection box follows the character after zooming', async ({ page }) => {
     // measured the way the app does it: getBoundingClientRect of the body (Playwright's boundingBox also counts the outline's stroke)
     const gap = () => page.evaluate(() => {
-      const s = (document.querySelector('[class*="selbox"]') as HTMLElement).getBoundingClientRect(), g = (document.querySelector('#stage .item .body') as SVGGElement).getBoundingClientRect();
+      const s = (document.querySelector('[class*="selbox"]') as HTMLElement).getBoundingClientRect(), g = (document.querySelector('#stage .item .body .figure') as SVGGElement).getBoundingClientRect();
       return Math.max(Math.abs(s.x - (g.x - 6)), Math.abs(s.y - (g.y - 6)), Math.abs(s.width - (g.width + 12)), Math.abs(s.height - (g.height + 12)));
     });
     await page.getByRole('button', { name: 'Zoom in' }).click();
@@ -297,5 +297,61 @@ test.describe('zoom and pan', () => {
     expect(await gap()).toBeLessThan(1.5);                                          // the box re-measures when the view changes
     await page.keyboard.press('ArrowRight'); await page.getByRole('button', { name: 'Zoom out' }).click();
     expect(await gap()).toBeLessThan(1.5);
+  });
+});
+
+test.describe('the selection box turns with the item', () => {
+  /** the box's own size (unaffected by its turn), its turn in degrees, and the page rectangles of the box and the character */
+  const read = (page: import('@playwright/test').Page) => page.evaluate(() => {
+    const s = document.querySelector('[class*="selbox"]') as HTMLElement, g = document.querySelector('#stage .item .body .figure') as SVGGElement;
+    const m = new DOMMatrix(getComputedStyle(s).transform), r = s.getBoundingClientRect(), b = g.getBoundingClientRect(), h = document.querySelector('[title^="Rotate"]')?.getBoundingClientRect();
+    const board = (s.parentElement as HTMLElement).getBoundingClientRect();
+    return { w: s.offsetWidth, h: s.offsetHeight, deg: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+      box: { x: r.x, y: r.y, r: r.right, b: r.bottom }, body: { x: b.x, y: b.y, r: b.right, b: b.bottom },
+      handle: h ? { x: h.x + h.width / 2, y: h.y + h.height / 2 } : null, board: { x: board.x, y: board.y, r: board.right, b: board.bottom } };
+  });
+
+  test('it takes the item\'s turn, keeps its size, and still contains the character', async ({ page }) => {
+    await selectFirstChar(page);
+    const flat = await read(page);
+    expect(Math.abs(flat.deg)).toBeLessThan(0.5);
+    for (let i = 0; i < 8; i++) await page.keyboard.press(']');                       // 8 x 5 degrees
+    const turned = await read(page);
+    expect(turned.deg).toBeGreaterThan(38); expect(turned.deg).toBeLessThan(42);
+    expect(Math.abs(turned.w - flat.w)).toBeLessThan(3); expect(Math.abs(turned.h - flat.h)).toBeLessThan(3);   // it does not balloon around the turned figure
+    for (const k of ['x', 'y'] as const) expect(turned.box[k]).toBeLessThanOrEqual(turned.body[k] + 1);       // the turned box still contains the character
+    expect(turned.box.r).toBeGreaterThanOrEqual(turned.body.r - 1); expect(turned.box.b).toBeGreaterThanOrEqual(turned.body.b - 1);
+  });
+
+  test('a mirrored character gets the same box, and turning it the other way works', async ({ page }) => {
+    await selectFirstChar(page);
+    const before = await read(page);
+    await page.keyboard.press('f');
+    const flipped = await read(page);
+    expect(Math.abs(flipped.w - before.w)).toBeLessThan(3); expect(Math.abs(flipped.deg)).toBeLessThan(0.5);
+    for (let i = 0; i < 6; i++) await page.keyboard.press('[');
+    const turned = await read(page);
+    expect(turned.deg).toBeLessThan(-26); expect(turned.deg).toBeGreaterThan(-34);
+  });
+
+  test('the rotate handle stays inside the stage and turns the item when dragged, at any angle', async ({ page }) => {
+    await selectFirstChar(page);
+    for (let i = 0; i < 12; i++) await page.keyboard.press(']');                      // 60 degrees
+    const t = await read(page);
+    expect(t.handle).not.toBeNull();
+    expect(t.handle?.x).toBeGreaterThan(t.board.x); expect(t.handle?.x).toBeLessThan(t.board.r);
+    expect(t.handle?.y).toBeGreaterThan(t.board.y); expect(t.handle?.y).toBeLessThan(t.board.b);
+    const h = t.handle as { x: number; y: number }, c = await centre(body(page));
+    await drag(page, h, { x: c.x - (h.y - c.y) * 0.5, y: c.y + (h.x - c.x) * 0.5 });       // a small further turn
+    const r = numberIn(await transformOf(page), 'rotate');
+    expect(r).not.toBe(60);
+  });
+
+  test('a corner handle still scales a turned item', async ({ page }) => {
+    await selectFirstChar(page);
+    for (let i = 0; i < 6; i++) await page.keyboard.press(']');
+    const s0 = numberIn(await transformOf(page), 'scale'), corner = page.locator('[data-c="se"]'), c = await centre(corner);
+    await drag(page, c, { x: c.x + 40, y: c.y + 40 });
+    expect(numberIn(await transformOf(page), 'scale')).toBeGreaterThan(s0);
   });
 });

@@ -63,8 +63,12 @@ function shadowSVG(c: Character): string {
   const r = rig(c), ay = Math.max(r.lL[2][1], r.lR[2][1]) + 15, ax = (r.lL[2][0] + r.lR[2][0]) / 2 + 6;
   return `<ellipse cx="${f1(ax)}" cy="${f1(ay)}" rx="64" ry="7" fill="#000" fill-opacity=".1"/>`;
 }
+/** the ground shadow under a character, or nothing */
+export const itemShadow = (it: Item): string => (it.kind === 'char' ? shadowSVG(it) : '');
+/** the item itself, without its shadow. The selection box is measured from this. */
+export const itemFigure = (it: Item): string => (it.kind === 'char' ? charSVG(it) : propSVG(it));
 /** the item's art in local space (shadow included for characters) */
-export const itemArt = (it: Item): string => (it.kind === 'char' ? shadowSVG(it) + charSVG(it) : propSVG(it));
+export const itemArt = (it: Item): string => itemShadow(it) + itemFigure(it);
 export const itemTransform = (it: Item): string =>
   `translate(${f1(it.x)} ${f1(it.y)}) rotate(${f1(it.r || 0)}) scale(${f1(it.s * 100) / 100})`;
 export const bodyTransform = (it: Item): string => `scale(${it.flip && canFlip(it) ? -1 : 1} 1)`;

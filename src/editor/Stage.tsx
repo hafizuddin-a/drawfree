@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, type RefObject, forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Character, Item } from '../types';
-import { bodyTransform, itemArt, itemTransform, propDef } from '../rig/renderCharacter';
+import { bodyTransform, itemFigure, itemShadow, itemTransform, propDef } from '../rig/renderCharacter';
 import { rig } from '../rig/poses';
 import { f1 } from '../parts/draw';
 import { frameBG } from '../scenes/scenes';
@@ -35,7 +35,7 @@ function PoseHandles({ c, px }: { c: Character; px: number }) {
 
 /** One item. Memoised on the item itself, so only the item being dragged re-renders. */
 const ItemView = memo(function ItemView({ item, handles, label, selected, px }: { item: Item; handles: boolean; label: string; selected: boolean; px: number }) {
-  const art = useMemo(() => itemArt(item), [item]);
+  const shadow = useMemo(() => itemShadow(item), [item]), figure = useMemo(() => itemFigure(item), [item]);
   const isChar = item.kind === 'char';
   return (
     <g className="item" data-id={item.id} transform={itemTransform(item)}>
@@ -46,8 +46,9 @@ const ItemView = memo(function ItemView({ item, handles, label, selected, px }: 
         onFocus={() => useEditor.getState().select(item.id)}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); useEditor.getState().select(item.id); } }} />
       <g className="body" transform={bodyTransform(item)}>
-        <g {...svgMarkup(art)} />
-        {handles && isChar && <PoseHandles c={item} px={px} />}
+        <g className="shadow" {...svgMarkup(shadow)} />
+        <g className="figure" {...svgMarkup(figure)} />
+        {handles && isChar && <g className="handles"><PoseHandles c={item} px={px} /></g>}
       </g>
     </g>
   );
