@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import * as frameModule from './export/frame';
-import { resetEditorStore, currentFrame, selectedItem, useEditor } from './state/store';
+import { resetEditorStore, currentFrame, selectedIds, selectedItem, useEditor } from './state/store';
 import type { Character, Item } from './types';
 
 const st = () => useEditor.getState();
@@ -659,5 +659,81 @@ describe('zoom and pan', () => {
     st().zoomBy(3); expect(st().past).toHaveLength(0);
     st().loadProject({ name: 'x', aspect: '16:9', frames: [{ id: 'z', bg: '#ffffff', scene: 'none', note: '', items: [] }] });
     expect(st().view.zoom).toBe(1);
+  });
+});
+
+describe('multi-select', () => {
+  const shiftClick = (i: number) => pointer(hits()[i], 'pointerdown', 300, 300, { shiftKey: true });
+  const upAt = (x = 300, y = 300) => pointer(window, 'pointerup', x, y);
+
+  it('Shift-click adds and removes items; the toolbar says how many, and hides Pose', () => {
+    render(<App />);
+    selectFirstChar(); shiftClick(1); upAt();
+    expect(st().sel).toBe(items()[0].id); expect(st().extra).toEqual([items()[1].id]);
+    const tb = screen.getByRole('toolbar', { name: '2 items selected' });
+    expect(within(tb).queryByRole('button', { name: 'Pose' })).toBeNull(); expect(within(tb).getByRole('button', { name: 'Flip' })).toBeTruthy();
+    expect(document.querySelectorAll('[data-c]')).toHaveLength(0); expect(document.querySelector('[title^="Rotate"]')).toBeNull();   // no scale or rotate handles for a group
+    expect(screen.getByRole('button', { name: 'Character 1' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Character 2' }).getAttribute('aria-pressed')).toBe('true');
+    shiftClick(1); upAt();
+    expect(st().extra).toEqual([]); expect(screen.getByRole('toolbar', { name: 'Selected item' })).toBeTruthy();
+  });
+
+  it('dragging any selected item moves the whole group together, as one undo step; a drag of an unselected item selects only it', () => {
+    render(<App />);
+    selectFirstChar(); shiftClick(1); upAt();
+    const [a0, b0, p0] = items();
+    pointer(hits()[1], 'pointerdown', 300, 300);
+    pointer(window, 'pointermove', 330, 310); pointer(window, 'pointermove', 360, 320); upAt(360, 320);
+    const [a1, b1, p1] = items();
+    expect(a1.x - a0.x).toBe(60); expect(b1.x - b0.x).toBe(60); expect(a1.y - a0.y).toBe(20); expect(b1.y - b0.y).toBe(20);
+    expect(p1).toBe(p0); expect(st().past).toHaveLength(1);
+    expect(st().extra).toHaveLength(1);                                           // still a group
+    pointer(hits()[2], 'pointerdown', 300, 300); pointer(window, 'pointermove', 320, 300); pointer(window, 'pointermove', 340, 300); upAt(340, 300);
+    expect(st().extra).toEqual([]); expect(st().sel).toBe(items()[2].id);
+  });
+
+  it('a click on empty stage deselects; a drag draws a marquee that selects what it touches', () => {
+    render(<App />);
+    selectFirstChar();
+    const stage = document.querySelector('#stage') as Element;
+    pointer(stage, 'pointerdown', 10, 10); upAt(10, 10);
+    expect(st().sel).toBeNull();
+    pointer(stage, 'pointerdown', 10, 10); pointer(window, 'pointermove', 30, 30); upAt(30, 30);   // touches nothing: selects nothing
+    expect(st().sel).toBeNull();
+    pointer(stage, 'pointerdown', 50, 50); pointer(window, 'pointermove', 150, 150);
+    expect(st().marquee).toEqual({ x0: 50, y0: 50, x1: 150, y1: 150 });
+    upAt(150, 150);
+    expect(st().marquee).toBeNull();
+    expect(selectedIds(st()).length).toBe(4);                                       // the jsdom stub gives every item the same rectangle, so this marquee touches all four
+    expect(st().past).toHaveLength(0);                                                // selecting is never an undo step
+  });
+
+  it('Shift plus a marquee adds to the selection', () => {
+    render(<App />);
+    selectFirstChar();
+    const stage = document.querySelector('#stage') as Element;
+    pointer(stage, 'pointerdown', 50, 50, { shiftKey: true }); pointer(window, 'pointermove', 150, 150, { shiftKey: true }); upAt(150, 150);
+    expect(st().sel).toBe(items()[0].id); expect(selectedIds(st())).toHaveLength(4);
+  });
+
+  it('Ctrl/Cmd+A selects everything, Delete removes it all, and Ctrl+Z brings it back; typing in a field is left alone', () => {
+    render(<App />);
+    fireEvent.keyDown(screen.getByLabelText('Scene note'), { key: 'a', ctrlKey: true }); expect(st().sel).toBeNull();
+    const e = new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => { window.dispatchEvent(e); });
+    expect(e.defaultPrevented).toBe(true); expect(selectedIds(st())).toHaveLength(4);
+    fireEvent.keyDown(document.body, { key: 'Delete' }); expect(items()).toHaveLength(0);
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true }); expect(items()).toHaveLength(4);
+  });
+
+  it('the arrow keys, + and [ ] act on the whole group', () => {
+    render(<App />);
+    st().selectMany([items()[0].id, items()[1].id]);
+    const x = [items()[0].x, items()[1].x];
+    fireEvent.keyDown(document.body, { key: 'ArrowRight', shiftKey: true });
+    expect([items()[0].x, items()[1].x]).toEqual([x[0] + 10, x[1] + 10]);
+    fireEvent.keyDown(document.body, { code: 'BracketRight', key: ']' });
+    expect([items()[0].r, items()[1].r]).toEqual([5, 5]);
   });
 });

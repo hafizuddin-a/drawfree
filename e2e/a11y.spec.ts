@@ -45,3 +45,8 @@ test('the frame strip with several frames', async ({ page }) => {
   await page.getByRole('button', { name: 'Duplicate' }).click();
   expect(await violations(page)).toEqual([]);
 });
+test('with several items selected', async ({ page }) => {
+  await page.keyboard.press('Control+a');
+  await expect(page.getByRole('toolbar', { name: '4 items selected' })).toBeVisible();
+  expect(await violations(page)).toEqual([]);
+});

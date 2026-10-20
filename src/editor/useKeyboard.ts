@@ -10,6 +10,7 @@ export function useKeyboard(handlers: { save: () => void; open: () => void }): v
       const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase(), st = useEditor.getState();
       if (mod && !e.shiftKey && !e.altKey && (k === 's' || k === 'o')) { e.preventDefault(); if (k === 's') save(); else open(); return; }
       if (typing) return;
+      if (mod && k === 'a' && !e.shiftKey && !e.altKey) { e.preventDefault(); st.selectAll(); return; }
       if (e.key === '/' && !mod) { e.preventDefault(); document.getElementById('q')?.focus(); return; }
       if (mod && k === 'z') { e.preventDefault(); if (e.shiftKey) st.redo(); else st.undo(); return; }
       if (mod && k === 'y') { e.preventDefault(); st.redo(); return; }

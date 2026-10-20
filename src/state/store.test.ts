@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MAX_HISTORY } from './history';
-import { charTarget, currentFrame, resetEditorStore, selectedItem, useEditor } from './store';
+import { charTarget, currentFrame, resetEditorStore, selectedIds, selectedItem, selectedItems, useEditor } from './store';
 import { fk } from '../rig/ik';
 import { LIMBS } from '../rig/geometry';
 import { rig } from '../rig/poses';
@@ -192,6 +192,91 @@ describe('frames', () => {
     st().setScene('park'); st().setBg('#ffe6e2'); st().setNote('Hello');
     expect(currentFrame(st())).toMatchObject({ scene: 'park', bg: '#ffe6e2', note: 'Hello' });
     expect(st().past).toHaveLength(2);                           // the note is typed text: no snapshot per keystroke
+  });
+});
+
+describe('multi-select', () => {
+  const ids = () => currentFrame(st()).items.map(i => i.id);
+  const [A, B, BUBBLE] = [0, 1, 2];
+  it('toggling adds an item, removes it again, and promotes another item when the primary is removed', () => {
+    st().select(ids()[A]);
+    st().toggleSelect(ids()[B]); expect(selectedIds(st())).toEqual([ids()[A], ids()[B]]);
+    st().toggleSelect(ids()[BUBBLE]); expect(selectedIds(st())).toHaveLength(3);
+    st().toggleSelect(ids()[A]);                                              // the primary leaves: the next one takes over
+    expect(st().sel).toBe(ids()[B]); expect(selectedIds(st())).toEqual([ids()[B], ids()[BUBBLE]]);
+    st().toggleSelect(ids()[B]); st().toggleSelect(ids()[BUBBLE]); expect(st().sel).toBeNull(); expect(st().extra).toEqual([]);
+  });
+  it('toggling with nothing selected selects the item', () => { st().toggleSelect(ids()[B]); expect(st().sel).toBe(ids()[B]); expect(st().extra).toEqual([]); });
+  it('plain select replaces a group; selectMany and selectAll set exactly what they are given', () => {
+    st().selectMany([ids()[A], ids()[B]]); expect(st().extra).toEqual([ids()[B]]);
+    st().select(ids()[BUBBLE]); expect(selectedIds(st())).toEqual([ids()[BUBBLE]]);
+    st().selectAll(); expect(selectedIds(st())).toEqual(ids());
+    st().selectMany([]); expect(st().sel).toBeNull();
+  });
+  it('selectedItems comes back in z-order, whatever order they were picked in', () => {
+    st().selectMany([ids()[BUBBLE], ids()[A]]);
+    expect(selectedItems(st()).map(i => i.id)).toEqual([ids()[A], ids()[BUBBLE]]);
+  });
+  it('nudge, rotate and scale act on every selected item, each as one undo step', () => {
+    const [a, b, bubble] = currentFrame(st()).items;
+    st().selectMany([a.id, b.id]);
+    const steps = st().past.length;
+    st().nudge(10, 5); st().rotateBy(15); st().scaleBy(1.1);
+    const [a2, b2, bubble2] = currentFrame(st()).items;
+    expect([a2.x, a2.y, a2.r]).toEqual([a.x + 10, a.y + 5, 15]); expect([b2.x, b2.y, b2.r]).toEqual([b.x + 10, b.y + 5, 15]);
+    expect(a2.s).toBeCloseTo(a.s * 1.1, 5); expect(b2.s).toBeCloseTo(b.s * 1.1, 5);
+    expect(bubble2).toBe(bubble);                                             // an unselected item is untouched (same object)
+    expect(st().past).toHaveLength(steps + 3);
+    st().undo(); st().undo(); st().undo(); expect(currentFrame(st()).items[0].x).toBe(a.x);
+  });
+  it('scaling a group makes no undo step once every item is at its limit', () => {
+    st().selectMany([ids()[A], ids()[B]]);
+    for (let i = 0; i < 80; i++) st().scaleBy(1.2);
+    const steps = st().past.length; st().scaleBy(1.2); expect(st().past).toHaveLength(steps);
+  });
+  it('flip turns each flippable item and leaves speech bubbles alone', () => {
+    const [a, , bubble] = currentFrame(st()).items;
+    st().selectMany([ids()[A], ids()[BUBBLE]]); st().act('flip');
+    const [a2, , bubble2] = currentFrame(st()).items;
+    expect(a2.flip).toBe(!a.flip); expect(bubble2.flip).toBe(bubble.flip);
+  });
+  it('duplicate copies the whole group, offsets it, and selects the copies', () => {
+    st().selectMany([ids()[A], ids()[B]]); st().act('dup');
+    const all = currentFrame(st()).items;
+    expect(all).toHaveLength(6); expect(selectedIds(st())).toEqual([all[4].id, all[5].id]);
+    expect(all[4].x).toBe(all[0].x + 40); expect(all[5].x).toBe(all[1].x + 40);
+    expect(new Set(all.map(i => i.id)).size).toBe(6);
+  });
+  it('bring to front keeps the selected items in their own order at the end', () => {
+    st().selectMany([ids()[A], ids()[B]]); const [a, b, bubble, plant] = currentFrame(st()).items; st().act('front');
+    expect(currentFrame(st()).items.map(i => i.id)).toEqual([bubble.id, plant.id, a.id, b.id]);
+  });
+  it('delete removes the whole group and clears the selection', () => {
+    st().selectMany([ids()[A], ids()[B]]); st().act('del');
+    expect(currentFrame(st()).items).toHaveLength(2); expect(st().sel).toBeNull(); expect(st().extra).toEqual([]);
+    st().undo(); expect(currentFrame(st()).items).toHaveLength(4);
+  });
+  it('the picker edits every selected character at once, as one undo step', () => {
+    st().selectMany([ids()[A], ids()[B]]); const steps = st().past.length;
+    st().applyPart('hair', 'curly');
+    const [a, b] = currentFrame(st()).items as Character[];
+    expect([a.hair, b.hair]).toEqual(['curly', 'curly']); expect(st().past).toHaveLength(steps + 1);
+    st().applyColor('topC', '#ff9a4d'); expect([(currentFrame(st()).items[0] as Character).topC, (currentFrame(st()).items[1] as Character).topC]).toEqual(['#ff9a4d', '#ff9a4d']);
+  });
+  it('pose mode works on the primary character only, and the toggle needs a selection', () => {
+    st().act('pose'); expect(st().pose).toBe(false);
+    st().selectMany([ids()[A], ids()[B]]); st().act('pose'); expect(st().pose).toBe(true);
+  });
+  it('changing frame, opening a project and undoing past a deleted item all clean up the selection', () => {
+    st().selectMany([ids()[A], ids()[B]]); st().addFrame(); expect(st().extra).toEqual([]); expect(st().sel).toBeNull();
+    st().selectFrame(0); st().selectAll(); st().act('dup');                   // select the four copies... then undo the duplicate
+    st().undo(); expect(selectedIds(st()).every(id => ids().includes(id))).toBe(true);
+    st().selectMany([ids()[A], ids()[B]]);
+    st().loadProject({ name: 'x', aspect: '16:9', frames: [{ id: 'z', bg: '#ffffff', scene: 'none', note: '', items: [] }] });
+    expect(st().extra).toEqual([]);
+  });
+  it('a marquee can be set and cleared', () => {
+    st().setMarquee({ x0: 1, y0: 2, x1: 3, y1: 4 }); expect(st().marquee).toEqual({ x0: 1, y0: 2, x1: 3, y1: 4 }); st().setMarquee(null); expect(st().marquee).toBeNull();
   });
 });
 
