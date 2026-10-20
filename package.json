@@ -20,5 +20,6 @@
     "jsdom": "^26.0.0",
     "serve": "^14.2.4",
     "wrangler": "^4.0.0"
-  }
+  },
+  "license": "MIT"
 }
