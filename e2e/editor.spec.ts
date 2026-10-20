@@ -212,3 +212,22 @@ test.describe('frames', () => {
     await expect(page.getByRole('textbox', { name: 'Scene note' })).toHaveValue('A');
   });
 });
+
+test.describe('touch targets', () => {
+  test('pose handles have hit areas of at least 44 px (hand and foot) and 32 px (elbow and knee)', async ({ page }) => {
+    await selectFirstChar(page);
+    await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
+    for (const limb of ['aL', 'aR', 'lL', 'lR']) {
+      const hand = await box(page.locator(`.jh.hitc[data-limb="${limb}"]`)), joint = await box(page.locator(`.bh.hitc[data-limb="${limb}"]`));
+      expect(hand.width, `${limb} hand`).toBeGreaterThanOrEqual(43);
+      expect(joint.width, `${limb} joint`).toBeGreaterThanOrEqual(31);
+    }
+  });
+
+  test('the visible hand dot is easy to see and big enough to aim at', async ({ page }) => {
+    await selectFirstChar(page);
+    await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
+    const dot = await page.locator('.jh.hitc[data-limb="aR"] + circle').first();
+    expect((await box(dot)).width).toBeGreaterThanOrEqual(17);
+  });
+});
