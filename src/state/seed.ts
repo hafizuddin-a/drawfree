@@ -1,6 +1,6 @@
 /* The starting scene: two characters facing each other outside a café. */
 import type { Frame } from '../types';
-import { BGC } from '../scenes/backgrounds';
+import { DEFAULT_BG } from '../scenes/backgrounds';
 import { newCharacter } from '../rig/renderCharacter';
 import { presetPose } from '../rig/poses';
 
@@ -14,7 +14,7 @@ export function seedFrames(): Frame[] {
   const B = newCharacter({ id: newId(), x: 690, y: 300, s: 0.82, flip: true, hair: 'bun', hairC: '#141414', glasses: 'round',
     top: 'blazer', topC: '#ffffff', neck: 'scarf', neckC: '#ff9a4d', bottom: 'skirt', botC: '#141414', shoes: 'boot', shoeC: '#141414', pose: presetPose('hips') });
   return [{
-    id: newId(), bg: BGC[0], scene: 'cafe', note: 'Two colleagues meet outside the café.',
+    id: newId(), bg: DEFAULT_BG, scene: 'cafe', note: 'Two colleagues meet outside the café.',
     items: [
       A, B,
       { id: newId(), kind: 'prop', prop: 'bubble', x: 480, y: 118, s: 1, r: 0, flip: false, text: 'Morning! Ready to shoot?' },

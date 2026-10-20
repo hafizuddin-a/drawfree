@@ -1,7 +1,7 @@
 /* Preset poses are stored as hand and foot targets and solved with IK when applied, so they adapt if bone lengths change. */
 import type { Character, LimbId, Pose, PosePreset, PoseTargets, Vec } from '../types';
 import { tags } from '../parts/draw';
-import { G, LIMBS, LIMB_IDS } from './geometry';
+import { LIMBS, LIMB_IDS } from './geometry';
 import { fk, ik } from './ik';
 
 export const T_IDLE: PoseTargets = { aL: [[-34, -30], 1], aR: [[34, -30], 1], lL: [[-20, 174], -1], lR: [[20, 174], -1] };
@@ -30,4 +30,3 @@ export function rig(c: Pick<Character, 'pose'>): Record<LimbId, [Vec, Vec, Vec]>
   for (const k of LIMB_IDS) o[k] = fk(LIMBS[k][0], LIMBS[k][1], LIMBS[k][2], c.pose[k][0], c.pose[k][1]);
   return o;
 }
-export { G };

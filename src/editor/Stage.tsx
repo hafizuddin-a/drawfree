@@ -5,6 +5,7 @@ import { rig } from '../rig/poses';
 import { f1 } from '../parts/draw';
 import { frameBG } from '../scenes/scenes';
 import { currentFrame, useEditor } from '../state/store';
+import { svgMarkup } from '../ui/markup';
 
 /* Pose handles exist only in the editor. They are sized against the item's scale so they stay the same size on screen,
    and each has a larger invisible circle (the real hit target) so a finger never loses it. */
@@ -35,7 +36,7 @@ const ItemView = memo(function ItemView({ item, handles }: { item: Item; handles
     <g className="item" data-id={item.id} transform={itemTransform(item)}>
       <rect className="hit" x={-130} y={isChar ? -290 : -200} width={260} height={isChar ? 490 : 240} fill="transparent" />
       <g className="body" transform={bodyTransform(item)}>
-        <g dangerouslySetInnerHTML={{ __html: art }} />
+        <g {...svgMarkup(art)} />
         {handles && isChar && <PoseHandles c={item} />}
       </g>
     </g>
@@ -45,12 +46,14 @@ const ItemView = memo(function ItemView({ item, handles }: { item: Item; handles
 interface Props { onPointerDown: (e: ReactPointerEvent<SVGSVGElement>) => void }
 
 export const Stage = forwardRef<SVGSVGElement, Props>(function Stage({ onPointerDown }, ref) {
-  const frame = useEditor(currentFrame), sel = useEditor(s => s.sel), pose = useEditor(s => s.pose);
-  const bg = useMemo(() => frameBG(frame, true), [frame.bg, frame.scene]);
+  const items = useEditor(s => currentFrame(s).items), bgColor = useEditor(s => currentFrame(s).bg), scene = useEditor(s => currentFrame(s).scene);
+  const sel = useEditor(s => s.sel), pose = useEditor(s => s.pose);
+  // the background is redrawn only when it changes, not on every drag
+  const bg = useMemo(() => frameBG({ bg: bgColor, scene }, true), [bgColor, scene]);
   return (
     <svg id="stage" ref={ref} viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
-      <g dangerouslySetInnerHTML={{ __html: bg }} />
-      {frame.items.map(it => <ItemView key={it.id} item={it} handles={pose && it.id === sel} />)}
+      <g {...svgMarkup(bg)} />
+      {items.map(it => <ItemView key={it.id} item={it} handles={pose && it.id === sel} />)}
     </svg>
   );
 });

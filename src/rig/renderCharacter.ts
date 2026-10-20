@@ -1,7 +1,7 @@
 /* Character and item renderers. A character is plain data; its SVG is rebuilt from it on every change.
    Draw order (back to front): hair back, legs, neck, pelvis or skirt, top, neckwear, left arm,
    head layers (ears, head, face, facial hair, glasses, hair front, hat), right arm. */
-import type { Character, Item, Prop, PropArgs } from '../types';
+import type { Character, Item, PropArgs } from '../types';
 import { INK, f1, pl, shp } from '../parts/draw';
 import { BOTTOMS, FACE, FACIAL, GLASSES, HAIR, HATS, NECK, PROPS, SHOES, TOPS, lookup } from '../parts';
 import { EAR, HEAD_D, slice } from './geometry';
@@ -52,13 +52,12 @@ export function charSVG(c: Character): string {
 }
 
 export const propSVG = (p: { prop: string } & PropArgs): string => propOf(p.prop).draw(p);
-export const propDef = (id: string) => propOf(id);
 
 /** items that cannot face the other way (speech bubbles) */
 export const canFlip = (it: Item): boolean => it.kind === 'char' || !propOf(it.prop).noFlip;
 
 /** the ground shadow shows only while the character stands upright */
-export function shadowSVG(c: Character): string {
+function shadowSVG(c: Character): string {
   if (Math.abs(c.r || 0) >= 8) return '';
   const r = rig(c), ay = Math.max(r.lL[2][1], r.lR[2][1]) + 15, ax = (r.lL[2][0] + r.lR[2][0]) / 2 + 6;
   return `<ellipse cx="${f1(ax)}" cy="${f1(ay)}" rx="64" ry="7" fill="#000" fill-opacity=".1"/>`;
@@ -73,4 +72,3 @@ export const bodyTransform = (it: Item): string => `scale(${it.flip && canFlip(i
 export const itemSVG = (it: Item): string =>
   `<g transform="${itemTransform(it)}"><g transform="${bodyTransform(it)}">${itemArt(it)}</g></g>`;
 
-export type { Prop };

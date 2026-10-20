@@ -4,13 +4,14 @@ import { PART_LISTS, PART_SLOTS, PROPS, hasPart } from '../parts';
 import { XML_ILLEGAL } from '../parts/draw';
 import { LIMB_IDS } from '../rig/geometry';
 import { newCharacter } from '../rig/renderCharacter';
-import { BGC } from '../scenes/backgrounds';
+import { DEFAULT_BG } from '../scenes/backgrounds';
 import { hasScene } from '../scenes/scenes';
 
 export const PROJECT_VERSION = 1;
-export const ASPECTS: readonly Aspect[] = ['16:9', '4:3', '1:1', '9:16'];
+const ASPECTS: readonly Aspect[] = ['16:9', '4:3', '1:1', '9:16'];
 export const DEFAULT_NAME = 'Untitled storyboard';
-export const MAX_FRAMES = 200, MAX_ITEMS = 200, MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_FRAMES = 200, MAX_ITEMS = 200;
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const COLOR_SLOTS: readonly ColorSlot[] = ['skin', 'hairC', 'topC', 'botC', 'shoeC', 'hatC', 'neckC'];
 
 /** counts of values that had to be repaired or dropped while cleaning */
@@ -20,10 +21,10 @@ export class ProjectError extends Error {}
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
-const num = (v: unknown, d: number, lo = -1e5, hi = 1e5): number => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+const num = (v: unknown, d: number, lo = -1e5, hi = 1e5): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
 /** drops characters XML 1.0 forbids so exported SVG always parses */
-export const cleanText = (v: unknown, max: number): string => (typeof v === 'string' ? v : '').replace(XML_ILLEGAL, '').slice(0, max);
-export const rid = (): string => 'i' + Math.random().toString(36).slice(2, 9);
+const cleanText = (v: unknown, max: number): string => (typeof v === 'string' ? v : '').replace(XML_ILLEGAL, '').slice(0, max);
+const rid = (): string => 'i' + Math.random().toString(36).slice(2, 9);
 export const cleanName = (v: unknown): string => cleanText(v, 80).trim() || DEFAULT_NAME;
 export const cleanAspect = (v: unknown): Aspect => ASPECTS.find(a => a === v) ?? '16:9';
 
@@ -31,7 +32,7 @@ function cleanPose(raw: unknown, base: Pose): Pose {
   const out = {} as Pose;
   LIMB_IDS.forEach((l: LimbId) => {
     const p = isObj(raw) ? raw[l] : null;
-    const ok = Array.isArray(p) && typeof p[0] === 'number' && isFinite(p[0]) && typeof p[1] === 'number' && isFinite(p[1]);
+    const ok = Array.isArray(p) && typeof p[0] === 'number' && Number.isFinite(p[0]) && typeof p[1] === 'number' && Number.isFinite(p[1]);
     out[l] = ok ? [p[0] as number, p[1] as number, p[2] === -1 ? -1 : 1] as LimbPose : [...base[l]] as LimbPose;
   });
   return out;
@@ -78,7 +79,7 @@ function cleanFrame(raw: unknown, fix: Fixes): Frame | null {
   }).filter((i): i is Item => i !== null);
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id.slice(0, 40) : rid(),
-    bg: isHex(raw.bg) ? raw.bg : BGC[0], scene: sceneOk ? (raw.scene as string) : 'none', note: cleanText(raw.note, 2000), items
+    bg: isHex(raw.bg) ? raw.bg : DEFAULT_BG, scene: sceneOk ? (raw.scene as string) : 'none', note: cleanText(raw.note, 2000), items
   };
 }
 
@@ -128,7 +129,7 @@ export const toProject = (st: ProjectState): Project => ({
   version: PROJECT_VERSION, name: st.name || DEFAULT_NAME, frames: st.frames, aspect: cleanAspect(st.aspect), updatedAt: new Date().toISOString()
 });
 
-/** The prototype stored items as { type: 'char' } / { type: 'prop', kind: <prop id> }. Convert to the file shape. */
+/** The original vanilla version stored items as { type: 'char' } / { type: 'prop', kind: <prop id> }. Convert to the file shape. */
 export function fromLegacyFrames(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw;
   return raw.map(f => {

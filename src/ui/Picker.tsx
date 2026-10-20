@@ -1,22 +1,23 @@
-import { memo, useDeferredValue, useEffect, useMemo, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, memo, useDeferredValue, useMemo, useRef } from 'react';
 import type { Character, PartInfo } from '../types';
 import { charTarget, currentFrame, selectedItem, useEditor } from '../state/store';
 import { SECS, SEARCHABLE, TABS, isListSection, type ColorSection, type ListSection, type SectionId } from './sections';
 import { lookKey, thumbSVG } from './thumbs';
 import { Icon } from './icons';
 import { Tabs } from './Tabs';
+import { svgMarkup } from './markup';
 import styles from './Picker.module.css';
 
 interface ThumbProps { sec: SectionId; id: string; name: string; html: string; on: boolean; tabIndex: 0 | -1; onPick: (e: MouseEvent<HTMLButtonElement>) => void }
 const Thumb = memo(function Thumb({ sec, id, name, html, on, tabIndex, onPick }: ThumbProps) {
   return (
     <button type="button" className={`${styles.th} ${on ? styles.on : ''}`} data-sec={sec} data-id={id} title={name} aria-label={name}
-      aria-pressed={on} tabIndex={tabIndex} onClick={onPick} dangerouslySetInnerHTML={{ __html: html }} />
+      aria-pressed={on} tabIndex={tabIndex} onClick={onPick} {...svgMarkup(html)} />
   );
 });
 
 /** Roving-tabindex grid: one tab stop, arrow keys move between thumbnails, Home and End jump. Enter applies (it is a button). */
-function Grid({ wide, children }: { wide?: boolean; children: ReactNode }) {
+function Grid({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) || !ref.current) return;
@@ -31,7 +32,8 @@ function Grid({ wide, children }: { wide?: boolean; children: ReactNode }) {
   const onFocus = (e: React.FocusEvent<HTMLDivElement>) => {
     ref.current?.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.tabIndex = b === (e.target as Element) ? 0 : -1; });
   };
-  return <div ref={ref} data-roving className={`${styles.grid} ${wide ? styles.wide : ''}`} onKeyDown={onKeyDown} onFocus={onFocus}>{children}</div>;
+  // biome-ignore lint/a11y/useSemanticElements: a fieldset is not a dependable CSS grid container. The group delegates arrow keys from the buttons inside it (roving tabindex).
+  return <div ref={ref} role="group" aria-label={label} data-roving className={`${styles.grid} ${wide ? styles.wide : ''}`} onKeyDown={onKeyDown} onFocus={onFocus}>{children}</div>;
 }
 
 function pick(e: MouseEvent<HTMLButtonElement>): void {
@@ -45,13 +47,14 @@ function pick(e: MouseEvent<HTMLButtonElement>): void {
 
 interface Ctx { base: Character | null; baseKey: string; bg: string; scene: string }
 
-function ThumbSection({ sec, ctx, items, showTitle }: { sec: ListSection; ctx: Ctx; items: readonly PartInfo[]; showTitle?: boolean }) {
+/** `items` is the whole list, or the search hits. Scenes are wide 16:9 tiles except in search results. */
+function ThumbSection({ sec, ctx, items, wide }: { sec: ListSection; ctx: Ctx; items: readonly PartInfo[]; wide?: boolean }) {
   const onFlags = items.map(o => sec.kind === 'scene' ? (ctx.scene || 'none') === o.id : sec.kind === 'part' && ctx.base !== null && ctx.base[sec.slot] === o.id);
   const anyOn = onFlags.some(Boolean);
   return (
     <>
-      <h3>{showTitle ?? true ? sec.title : null}</h3>
-      <Grid wide={sec.kind === 'scene' && showTitle !== false && items === sec.list}>
+      <h3>{sec.title}</h3>
+      <Grid label={sec.title} wide={wide}>
         {items.map((o, i) => (
           <Thumb key={o.id} sec={sec.id} id={o.id} name={o.name} html={thumbSVG(sec, o, ctx.base, ctx.baseKey, ctx.bg)} on={onFlags[i]}
             tabIndex={onFlags[i] || (!anyOn && i === 0) ? 0 : -1} onPick={pick} />
@@ -87,13 +90,12 @@ export function Picker() {
   const base = useDeferredValue(liveBase);
   const baseKey = useMemo(() => (base ? lookKey(base) : ''), [base]);
   const ctx: Ctx = { base, baseKey, bg, scene };
-  const scroller = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0; }, [tab]);
 
   const query = q.trim().toLowerCase();
   let body: ReactNode;
   if (query) {
-    const groups = SEARCHABLE.map(sec => ({ sec, hits: sec.list.filter(o => (o.name + ' ' + o.tags.join(' ')).toLowerCase().includes(query)) })).filter(g => g.hits.length);
+    const matches = (o: PartInfo) => (o.name + ' ' + o.tags.join(' ')).toLowerCase().includes(query);
+    const groups = SEARCHABLE.map(sec => ({ sec, hits: sec.list.filter(matches) })).filter(g => g.hits.length);
     body = groups.length
       ? groups.map(g => <ThumbSection key={g.sec.id} sec={g.sec} ctx={ctx} items={g.hits} />)
       : <div className={styles.empty}>Nothing matches “{q.trim()}”.</div>;
@@ -106,7 +108,7 @@ export function Picker() {
         {tab === 'props' && sel && sel.kind === 'prop' && sel.prop === 'bubble' && <BubbleText text={sel.text ?? ''} />}
         {cur.secs.map(id => {
           const sec = SECS[id];
-          return isListSection(sec) ? <ThumbSection key={id} sec={sec} ctx={ctx} items={sec.list} /> : <Swatches key={id} sec={sec} ctx={ctx} />;
+          return isListSection(sec) ? <ThumbSection key={id} sec={sec} ctx={ctx} items={sec.list} wide={sec.kind === 'scene'} /> : <Swatches key={id} sec={sec} ctx={ctx} />;
         })}
       </>
     );
@@ -119,7 +121,8 @@ export function Picker() {
         <input id="q" type="search" placeholder="Search parts" aria-label="Search parts" autoComplete="off" value={q} onChange={e => setQuery(e.target.value)} />
       </div>
       <Tabs />
-      <div ref={scroller} className={styles.scroll}>{body}</div>
+      {/* keyed by tab: a new tab starts scrolled to the top */}
+      <div key={tab} className={styles.scroll}>{body}</div>
     </aside>
   );
 }

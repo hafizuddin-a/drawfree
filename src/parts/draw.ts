@@ -17,6 +17,7 @@ export const blob = (cs: ReadonlyArray<readonly [number, number, number]>, fill:
   cs.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join('');
 
 /** characters XML 1.0 forbids: control codes and lone surrogates */
+// biome-ignore lint/complexity/useRegexLiterals: TypeScript 7 rejects this class as a regex literal
 export const XML_ILLEGAL = new RegExp('[^\\t\\n\\r\\u0020-\\uD7FF\\uE000-\\uFFFD\\u{10000}-\\u{10FFFF}]', 'gu');
 
 /** Escapes text for SVG and drops characters XML 1.0 forbids, so exported files always parse. */

@@ -21,11 +21,11 @@ export function TopBar({ onOpen, onSave, onExport }: Props) {
       <input className={styles.pname} type="text" maxLength={80} placeholder="Untitled storyboard" aria-label="Project name" autoComplete="off"
         value={draft ?? name} onChange={e => { setDraft(e.target.value); setName(e.target.value); }} onBlur={() => setDraft(null)}
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
-      <div className={styles.bgs} role="group" aria-label="Frame background">
+      <fieldset className={styles.bgs} aria-label="Frame background">
         {BGS.map(c => (
           <button key={c} type="button" className={bg === c ? styles.on : ''} style={{ background: c }} aria-label={`Background ${c}`} aria-pressed={bg === c} title="Background" onClick={() => setBg(c)} />
         ))}
-      </div>
+      </fieldset>
       <div className={styles.group}>
         <Button onClick={addChar}>+ Character</Button>
         <Button onClick={shuffle}>Shuffle look</Button>

@@ -2,9 +2,8 @@
    The stage re-renders on every change, so the drag session lives in a ref and the move and up listeners sit on window,
    never on elements. snap() runs once, after the pointer has actually moved, so a click never creates an undo step. */
 import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
-import { LIMBS } from '../rig/geometry';
+import { LIMBS, RAD } from '../rig/geometry';
 import { ik } from '../rig/ik';
-import { RAD } from '../rig/geometry';
 import { currentFrame, selectedItem, useEditor } from '../state/store';
 
 type Drag =

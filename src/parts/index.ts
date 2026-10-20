@@ -17,7 +17,7 @@ export const PART_LISTS: { readonly [K in PartSlot]: readonly PartInfo[] } = {
 };
 export const PART_SLOTS = Object.keys(PART_LISTS) as PartSlot[];
 
-export interface Lookup<T extends PartInfo> { (id: string): T }
+export type Lookup<T extends PartInfo> = (id: string) => T;
 /** id -> part, falling back to the first part of the list when the id is unknown */
 export function lookup<T extends PartInfo>(list: readonly T[]): Lookup<T> {
   const m = new Map(list.map(p => [p.id, p] as const));

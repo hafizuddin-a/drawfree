@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import styles from './Dialog.module.css';
 
 interface Props {
@@ -7,20 +7,19 @@ interface Props {
   labelledBy?: string;
   label?: string;
   narrow?: boolean;
-  /** element to focus on open; defaults to the first focusable one */
-  initialFocus?: RefObject<HTMLElement | null>;
   children: ReactNode;
 }
 
 const FOCUSABLE = 'input,button,textarea,select,[href],[tabindex]:not([tabindex="-1"])';
 
 /** A modal dialog: focus moves in, Tab stays inside, Esc and a click on the backdrop close it, focus returns to the opener. */
-export function Dialog({ onClose, labelledBy, label, narrow, initialFocus, children }: Props) {
+export function Dialog({ onClose, labelledBy, label, narrow, children }: Props) {
   const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    (initialFocus?.current ?? card.current?.querySelector<HTMLElement>(FOCUSABLE))?.focus();
-    return () => { if (opener && opener.isConnected) opener.focus(); };
+    // focus the element marked data-autofocus, else the first focusable one
+    (card.current?.querySelector<HTMLElement>('[data-autofocus]') ?? card.current?.querySelector<HTMLElement>(FOCUSABLE))?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
   }, []);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -35,7 +34,8 @@ export function Dialog({ onClose, labelledBy, label, narrow, initialFocus, child
   };
 
   return (
-    <div className={styles.modal} onPointerDown={e => { if (e.target === e.currentTarget) onClose(); }} onKeyDown={onKeyDown}>
+    // biome-ignore lint/a11y/noStaticElementInteractions: the backdrop click and the dialog's key handling are conveniences; every action has a button, and Esc closes it
+    <div role="presentation" className={styles.modal} onPointerDown={e => { if (e.target === e.currentTarget) onClose(); }} onKeyDown={onKeyDown}>
       <div ref={card} className={`${styles.card} ${narrow ? styles.narrow : ''}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} aria-label={label}>
         {children}
       </div>

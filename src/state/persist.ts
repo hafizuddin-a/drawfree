@@ -7,7 +7,7 @@ import type { EditorState } from './store';
 export const KEY = 'drawfree.v1', OLD_KEY = 'inkframe.v1';
 export interface Saved { name: string; aspect: Aspect; frames: Frame[]; fi: number }
 
-/** Stored data is untrusted. A versioned object is a project plus `fi`; anything else is the prototype's older shape. */
+/** Stored data is untrusted. A versioned object is a project plus `fi`; anything else is the original vanilla version's shape. */
 export function loadSaved(): Saved | null {
   try {
     const raw: unknown = JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY) ?? 'null');
@@ -24,10 +24,6 @@ export function loadSaved(): Saved | null {
   } catch {
     return null;
   }
-}
-
-export function clearSaved(): void {
-  try { localStorage.removeItem(KEY); } catch { /* storage blocked */ }
 }
 
 /** Returns a controller: flush() writes pending changes now, stop() unsubscribes. */
@@ -49,5 +45,9 @@ export function startAutosave(store: StoreApi<EditorState>): { flush: () => void
   const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
   window.addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', onHide);
-  return { flush, stop: () => { unsub(); clearTimeout(timer); window.removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', onHide); } };
+  const stop = () => {
+    unsub(); clearTimeout(timer);
+    window.removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', onHide);
+  };
+  return { flush, stop };
 }

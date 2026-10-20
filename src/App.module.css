@@ -2,9 +2,21 @@
   height: 100%; display: grid; gap: 12px;
   grid-template-columns: minmax(300px, 344px) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas: "top top" "panel stage" "panel strip";
+  grid-template-areas:
+    "top top"
+    "panel stage"
+    "panel strip";
 }
 .dropnote { position: fixed; inset: 12px; z-index: 50; display: grid; place-items: center; border: 3px dashed var(--accent); border-radius: 18px; background: color-mix(in srgb, var(--panel) 88%, transparent); font: 700 20px var(--font-brand); pointer-events: none; }
 @media (max-width: 860px) {
-  .app { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "top" "stage" "strip" "panel"; }
+  .app {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "top"
+      "stage"
+      "strip"
+      "panel";
+  }
 }

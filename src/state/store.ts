@@ -86,7 +86,7 @@ const mapChar = (it: Item, fn: (c: Character) => Character): Item => (it.kind ==
 
 let toastSeq = 0;
 
-export const initialState = () => ({
+const initialState = () => ({
   name: DEFAULT_NAME, aspect: '16:9' as Aspect, frames: seedFrames(), fi: 0, sel: null as string | null,
   tab: 'hair' as TabId, q: '', pose: false, toast: null as Toast | null, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
 });

@@ -15,15 +15,15 @@ const place = (svg: string, label: string) => {
   body += `<g transform="translate(${x} ${y}) scale(0.5)">${svg}</g><text x="${x}" y="${y + 120}" font-size="14" text-anchor="middle" font-family="sans-serif">${label}</text>`;
   n++;
 };
-POSES.forEach(p => place(charSVG(newCharacter({ pose: poseFrom(p.t) })), p.id));
-HAIR.forEach(h => place(charSVG(newCharacter({ hair: h.id, hairC: '#4a2f22' })), 'hair ' + h.id));
-TOPS.forEach(t => place(charSVG(newCharacter({ top: t.id, topC: '#ffe08a', neck: t.id === 'blazer' ? 'tie' : 'none' })), 'top ' + t.id));
-BOTTOMS.forEach(t => place(charSVG(newCharacter({ bottom: t.id, botC: '#141414' })), 'bottom ' + t.id));
-SHOES.forEach(t => place(charSVG(newCharacter({ shoes: t.id, shoeC: '#4aa8ff', bottom: 'jeans' })), 'shoes ' + t.id));
-FACE.forEach(t => place(charSVG(newCharacter({ face: t.id })), 'face ' + t.id));
+for (const p of POSES) place(charSVG(newCharacter({ pose: poseFrom(p.t) })), p.id);
+for (const h of HAIR) place(charSVG(newCharacter({ hair: h.id, hairC: '#4a2f22' })), 'hair ' + h.id);
+for (const t of TOPS) place(charSVG(newCharacter({ top: t.id, topC: '#ffe08a', neck: t.id === 'blazer' ? 'tie' : 'none' })), 'top ' + t.id);
+for (const t of BOTTOMS) place(charSVG(newCharacter({ bottom: t.id, botC: '#141414' })), 'bottom ' + t.id);
+for (const t of SHOES) place(charSVG(newCharacter({ shoes: t.id, shoeC: '#4aa8ff', bottom: 'jeans' })), 'shoes ' + t.id);
+for (const t of FACE) place(charSVG(newCharacter({ face: t.id })), 'face ' + t.id);
 const extras: Array<[keyof Character, readonly PartInfo[]]> = [['glasses', GLASSES], ['facial', FACIAL], ['hat', HATS], ['neck', NECK]];
-extras.forEach(([k, list]) => list.forEach(t => place(charSVG(newCharacter({ [k]: t.id, hairC: '#141414', neckC: '#ff9a4d', top: 'tee' })), k + ' ' + t.id)));
-PROPS.forEach(p => place(propSVG({ prop: p.id, text: p.text }), 'prop ' + p.id));
+for (const [k, list] of extras) for (const t of list) place(charSVG(newCharacter({ [k]: t.id, hairC: '#141414', neckC: '#ff9a4d', top: 'tee' })), k + ' ' + t.id);
+for (const p of PROPS) place(propSVG({ prop: p.id, text: p.text }), 'prop ' + p.id);
 place('<g transform="scale(-1 1)">' + charSVG(newCharacter({ flip: false })) + '</g>', 'flipped');
 
 const H = Math.ceil(n / 6) * 330 + 20;
