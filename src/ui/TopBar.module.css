@@ -1,0 +1,10 @@
+.top { grid-area: top; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.brand { font: 700 20px/1 var(--font-brand); letter-spacing: -.02em; margin-right: auto; display: flex; align-items: center; gap: 8px; }
+.brand svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.group { display: flex; align-items: center; gap: 6px; }
+.pname { width: 190px; height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); font-weight: 600; }
+.bgs { display: flex; gap: 6px; padding: 0 4px; }
+.bgs button { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); padding: 0; }
+.bgs button.on { box-shadow: 0 0 0 2px var(--accent); }
+.ico { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 860px) { .brand { width: 100%; } .pname { flex: 1 1 140px; width: auto; } }

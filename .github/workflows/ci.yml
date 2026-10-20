@@ -23,7 +23,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # unit tests, build, built-page check, jsdom smoke test. (Typecheck joins this step with the TypeScript port.)
+      # typecheck, unit and UI tests, build, then the size budget and source rules (tools/check.js)
       - run: npm run ci
 
   # Every PR from this repo gets a preview URL on the staging Worker. It is a version upload, so staging itself is untouched.
@@ -45,7 +45,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: node build.js && node tools/check.js
+      - run: npm run build && node tools/check.js
       - name: Upload preview version
         env:
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-out.ndjson

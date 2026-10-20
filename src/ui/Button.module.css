@@ -1,0 +1,10 @@
+.btn {
+  height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600;
+}
+.btn:hover { border-color: var(--accent); }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn svg { width: 16px; height: 16px; }
+.btn[disabled] { opacity: .4; cursor: default; }
+.btn[disabled]:hover { border-color: var(--line); }
+@media (prefers-reduced-motion: no-preference) { .btn { transition: border-color .12s, background .12s; } }
