@@ -2,7 +2,7 @@
 // usage: tsx tools/sheet.ts <out.png>
 import fs from 'node:fs';
 import { Resvg } from '@resvg/resvg-js';
-import { BOTTOMS, FACE, FACIAL, GLASSES, HAIR, HATS, NECK, PROPS, SHOES, TOPS } from '../src/parts';
+import { BOTTOMS, FACE, FACIAL, GLASSES, HAIR, PROPS, SHOES, TOPS } from '../src/parts';
 import { POSES, poseFrom } from '../src/rig/poses';
 import { charSVG, newCharacter, propSVG } from '../src/rig/renderCharacter';
 import type { Character, PartInfo } from '../src/types';
@@ -16,13 +16,13 @@ const place = (svg: string, label: string) => {
   n++;
 };
 for (const p of POSES) place(charSVG(newCharacter({ pose: poseFrom(p.t) })), p.id);
-for (const h of HAIR) place(charSVG(newCharacter({ hair: h.id, hairC: '#4a2f22' })), 'hair ' + h.id);
-for (const t of TOPS) place(charSVG(newCharacter({ top: t.id, topC: '#ffe08a', neck: t.id === 'blazer' ? 'tie' : 'none' })), 'top ' + t.id);
+for (const h of HAIR) place(charSVG(newCharacter({ hair: h.id, hairC: '#c97b4a', skin: '#e9b996' })), 'hair ' + h.id);
+for (const t of TOPS) place(charSVG(newCharacter({ top: t.id, topC: '#ffe08a' })), 'top ' + t.id);
 for (const t of BOTTOMS) place(charSVG(newCharacter({ bottom: t.id, botC: '#141414' })), 'bottom ' + t.id);
 for (const t of SHOES) place(charSVG(newCharacter({ shoes: t.id, shoeC: '#4aa8ff', bottom: 'jeans' })), 'shoes ' + t.id);
 for (const t of FACE) place(charSVG(newCharacter({ face: t.id })), 'face ' + t.id);
-const extras: Array<[keyof Character, readonly PartInfo[]]> = [['glasses', GLASSES], ['facial', FACIAL], ['hat', HATS], ['neck', NECK]];
-for (const [k, list] of extras) for (const t of list) place(charSVG(newCharacter({ [k]: t.id, hairC: '#141414', neckC: '#ff9a4d', top: 'tee' })), k + ' ' + t.id);
+const extras: Array<[keyof Character, readonly PartInfo[]]> = [['glasses', GLASSES], ['facial', FACIAL]];
+for (const [k, list] of extras) for (const t of list) place(charSVG(newCharacter({ [k]: t.id, top: 'tee' })), k + ' ' + t.id);
 for (const p of PROPS) place(propSVG({ prop: p.id, text: p.text }), 'prop ' + p.id);
 place('<g transform="scale(-1 1)">' + charSVG(newCharacter({ flip: false })) + '</g>', 'flipped');
 

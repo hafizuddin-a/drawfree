@@ -110,8 +110,8 @@ test.describe('keyboard only', () => {
     await items(page).first().locator('.hit').focus();
     await page.locator('body').press('/');
     await expect(page.getByRole('searchbox', { name: 'Search parts' })).toBeFocused();
-    await page.keyboard.type('curls');
-    const thumb = page.getByRole('button', { name: 'Curls' });
+    await page.keyboard.type('eyepatch');
+    const thumb = page.getByRole('button', { name: 'Eyepatch' });
     await thumb.focus(); await page.keyboard.press('Enter');
     await expect(thumb).toHaveAttribute('aria-pressed', 'true');
   });

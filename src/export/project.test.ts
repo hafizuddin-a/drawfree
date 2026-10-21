@@ -13,7 +13,7 @@ import {
 const strip = (p: Project): Project => ({ ...p, updatedAt: '-' });
 
 function sample() {
-  const c: Character = newCharacter({ id: 'c1', x: 270.5, y: 301.25, s: 0.82, r: 12.5, flip: true, hat: 'beanie', hatC: '#ffffff', facial: 'beard', pose: presetPose('wave') });
+  const c: Character = newCharacter({ id: 'c1', x: 270.5, y: 301.25, s: 0.82, r: 12.5, flip: true, hair: 'hat-beanie', hatC: '#ffffff', facial: 'full', pose: presetPose('wave') });
   c.pose.aR = ik(LIMBS.aR[0], LIMBS.aR[1], LIMBS.aR[2], [60, -40], -1);          // an arbitrary solved pose with a flipped bend
   const frames: Frame[] = [
     { id: 'f1', bg: '#e7f3fd', scene: 'cafe', note: 'Two colleagues meet.', items: [c,
@@ -76,11 +76,23 @@ describe('project files', () => {
     const bad = ['not json', '[]', '{}', '{"version":1}', '{"version":"1","frames":[]}', '{"version":0,"frames":[{}]}', '{"version":1.5,"frames":[{}]}',
       JSON.stringify({ version: 1, frames: [] }), JSON.stringify({ version: 1, frames: ['x', 3] })];
     for (const b of bad) expect(() => parseProject(b), b).toThrow(/not a Drawfree project|no frames/);
-    expect(() => parseProject(JSON.stringify({ version: 2, frames: [{}] }))).toThrow(/newer version/);
+    expect(() => parseProject(JSON.stringify({ version: PROJECT_VERSION + 1, frames: [{}] }))).toThrow(/newer version/);
     expect(() => parseProject('not json')).toThrow(ProjectError);
   });
-  it('migrates by version: only version 1 exists, and it is accepted as is', () => {
-    expect(parseProject(JSON.stringify({ version: 1, frames: [{}] })).state.frames).toHaveLength(1);
+  it('migrates version 1 heads to the Open Peeps parts, hats included', () => {
+    const v1 = (o: Record<string, unknown>) => ({ ...newCharacter({ id: 'c' }), hair: 'crop', face: 'grin', glasses: 'round', facial: 'beard', hat: 'none', hairC: '#141414', neck: 'scarf', neckC: '#ff9a4d', ...o });
+    const file = { version: 1, frames: [{ items: [v1({}), v1({ hair: 'long', hat: 'beanie', face: 'sleepy', glasses: 'shades', facial: 'stache', hairC: '#e0b95a' })] }] };
+    const r = parseProject(JSON.stringify(file));
+    const [a, b] = r.state.frames[0].items as Character[];
+    expect(r.fixed).toBe(0);
+    expect(a).toMatchObject({ hair: 'short-1', face: 'smile-big', glasses: 'glasses', facial: 'full', hairC: '#e0b95a' });
+    expect(b).toMatchObject({ hair: 'hat-beanie', face: 'tired', glasses: 'sunglasses', facial: 'moustache-1', hairC: '#e0b95a' });
+    for (const gone of ['hat', 'neck', 'neckC']) expect(gone in a, gone).toBe(false);
+    expect(toProject(r.state).version).toBe(2);
+  });
+  it('a version 1 file with unknown ids still repairs them after migrating', () => {
+    const r = parseProject(JSON.stringify({ version: 1, frames: [{ items: [{ kind: 'char', hair: 'mullet' }] }] }));
+    expect((r.state.frames[0].items[0] as Character).hair).toBe(HAIR[0].id);
   });
   it('tolerates minimal frames and fills ids, background and scene', () => {
     const r = parseProject(JSON.stringify({ version: 1, name: '  ', frames: [{}] })).state;
@@ -106,6 +118,12 @@ describe('legacy autosave from the prototype', () => {
     expect(r.fixed).toBe(0); expect(r.dropped).toBe(0);
     expect(r.frames[0].items.map(i => i.kind)).toEqual(['char', 'prop']);
     expect(r.frames[0].items[1]).toMatchObject({ prop: 'bubble', text: 'hello', r: 0 });
+  });
+  it('maps the prototype\'s head part ids to the Open Peeps ones', () => {
+    const old = [{ items: [{ ...newCharacter({ id: 'a' }), kind: undefined, type: 'char', hair: 'curly', hat: 'cap', face: 'wink' }] }];
+    const r = cleanFrames(fromLegacyFrames(old));
+    expect(r.fixed).toBe(0);
+    expect(r.frames[0].items[0]).toMatchObject({ hair: 'hat-hip', face: 'cute' });
   });
   it('repairs bad data and survives junk input', () => {
     const bad = JSON.parse(JSON.stringify(legacy)) as typeof legacy; loose(bad[0].items[0]).face = 'gone';

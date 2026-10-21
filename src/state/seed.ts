@@ -9,10 +9,10 @@ let counter = 1;
 export const newId = (): string => 'i' + (counter++) + Math.random().toString(36).slice(2, 5);
 
 export function seedFrames(): Frame[] {
-  const A = newCharacter({ id: newId(), x: 270, y: 300, s: 0.82, hat: 'beanie', hatC: '#ffffff', facial: 'beard', hairC: '#4a2f22',
+  const A = newCharacter({ id: newId(), x: 270, y: 300, s: 0.82, hair: 'hat-beanie', hatC: '#ffe08a', facial: 'full', skin: '#c68a62', face: 'smile-big',
     top: 'tee', topC: '#141414', bottom: 'jeans', botC: '#cfe8ff', pose: presetPose('wave') });
-  const B = newCharacter({ id: newId(), x: 690, y: 300, s: 0.82, flip: true, hair: 'bun', hairC: '#141414', glasses: 'round',
-    top: 'blazer', topC: '#ffffff', neck: 'scarf', neckC: '#ff9a4d', bottom: 'skirt', botC: '#141414', shoes: 'boot', shoeC: '#141414', pose: presetPose('hips') });
+  const B = newCharacter({ id: newId(), x: 690, y: 300, s: 0.82, flip: true, hair: 'gray-bun', hairC: '#c97b4a', glasses: 'glasses', face: 'explaining',
+    top: 'blazer', topC: '#ffffff', bottom: 'skirt', botC: '#141414', shoes: 'boot', shoeC: '#141414', pose: presetPose('hips') });
   return [{
     id: newId(), bg: DEFAULT_BG, scene: 'cafe', note: 'Two colleagues meet outside the café.',
     items: [

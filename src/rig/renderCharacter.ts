@@ -1,23 +1,24 @@
 /* Character and item renderers. A character is plain data; its SVG is rebuilt from it on every change.
    Draw order (back to front): hair back, legs, neck, pelvis or skirt, top, neckwear, left arm,
-   head layers (ears, head, face, facial hair, glasses, hair front, hat), right arm. */
+   head (Open Peeps: head and hair, face, facial hair, glasses), right arm. */
 import type { Character, Item, PropArgs } from '../types';
 import { INK, f1, pl, shp } from '../parts/draw';
-import { BOTTOMS, FACE, FACIAL, GLASSES, HAIR, HATS, NECK, PROPS, SHOES, TOPS, lookup } from '../parts';
-import { EAR, HEAD_D, slice } from './geometry';
+import { BOTTOMS, FACE, FACIAL, GLASSES, HAIR, PROPS, SHOES, TOPS, lookup } from '../parts';
+import { peepSVG } from '../parts/peeps/art';
+import { slice } from './geometry';
 import { hand, tube } from './limbs';
 import { T_IDLE, poseFrom, rig } from './poses';
 
-const hairOf = lookup(HAIR), faceOf = lookup(FACE), glassesOf = lookup(GLASSES), facialOf = lookup(FACIAL), hatOf = lookup(HATS);
-const neckOf = lookup(NECK), topOf = lookup(TOPS), bottomOf = lookup(BOTTOMS), shoeOf = lookup(SHOES), propOf = lookup(PROPS);
+const hairOf = lookup(HAIR), faceOf = lookup(FACE), glassesOf = lookup(GLASSES), facialOf = lookup(FACIAL);
+const topOf = lookup(TOPS), bottomOf = lookup(BOTTOMS), shoeOf = lookup(SHOES), propOf = lookup(PROPS);
 
 /** a new character with the default look. Pass overrides to change any field. */
 export function newCharacter(o: Partial<Character> = {}): Character {
   return {
     id: 'char', kind: 'char', x: 480, y: 300, s: 0.8, r: 0, flip: false,
-    skin: '#ffffff', hair: 'crop', hairC: '#141414', face: 'smile',
+    skin: '#ffffff', hair: 'short-1', hairC: '#e0b95a', face: 'smile',
     top: 'tee', topC: '#ffffff', bottom: 'jeans', botC: '#cfe8ff', shoes: 'sneaker', shoeC: '#ffffff',
-    glasses: 'none', facial: 'none', hat: 'none', hatC: '#ffe08a', neck: 'none', neckC: '#ff9a4d',
+    glasses: 'none', facial: 'none', hatC: '#4aa8ff',
     pose: poseFrom(T_IDLE),
     ...o
   };
@@ -25,8 +26,7 @@ export function newCharacter(o: Partial<Character> = {}): Character {
 
 /** the character in local rig space, facing +x */
 export function charSVG(c: Character): string {
-  const hair = hairOf(c.hair), face = faceOf(c.face), gl = glassesOf(c.glasses), fa = facialOf(c.facial), hat = hatOf(c.hat);
-  const nk = neckOf(c.neck), top = topOf(c.top), bot = bottomOf(c.bottom), shoe = shoeOf(c.shoes);
+  const top = topOf(c.top), bot = bottomOf(c.bottom), shoe = shoeOf(c.shoes);
   const r = rig(c);
   const arm = (k: 'aL' | 'aR') => {
     const pts = r[k];
@@ -43,11 +43,11 @@ export function charSVG(c: Character): string {
     const a = pts[2], rot = Math.max(-45, Math.min(45, -(c.pose[k][0] + c.pose[k][1]) * 0.5));
     return s + `<g transform="translate(${f1(a[0])} ${f1(a[1])}) rotate(${f1(rot)})">${shoe.draw(c.shoeC, c.skin)}</g>`;
   };
-  const head =
-    shp(HEAD_D, c.skin) + EAR + fa.pre(c.hairC) + face.draw() + gl.draw() + fa.post(c.hairC) +
-    (c.hat === 'none' ? hair.front(c.hairC) : '') + hat.draw(c.hatC);
-  return hair.back(c.hairC) + leg('lL') + leg('lR') +
-    shp('M-9,-182 V-160 H9 V-182 Z', c.skin) + bot.pelvis(c.botC) + top.draw(c.topC, c.skin) + nk.draw(c.neckC) +
+  const pc = { skin: c.skin, hair: c.hairC, hat: c.hatC };
+  const head = peepSVG(hairOf(c.hair).art, pc) + peepSVG(faceOf(c.face).art, pc) + peepSVG(facialOf(c.facial).art, pc) + peepSVG(glassesOf(c.glasses).art, pc);
+  // the neck's top runs up under the jaw, which the head covers
+  return leg('lL') + leg('lR') +
+    shp('M-9,-196 V-160 H9 V-196 Z', c.skin) + bot.pelvis(c.botC) + top.draw(c.topC, c.skin) +
     arm('aL') + head + arm('aR');
 }
 
