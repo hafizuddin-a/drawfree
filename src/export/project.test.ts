@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HAIR, TOPS } from '../parts';
-import { LIMB_IDS } from '../rig/geometry';
-import { presetPose, solveLimb } from '../rig/poses';
-import { newCharacter } from '../rig/renderCharacter';
+import { BODIES, HAIR } from '../parts';
+import { DEFAULT_BODY, newCharacter } from '../rig/renderCharacter';
 import type { Character, Frame, Project } from '../types';
 import {
   DEFAULT_NAME, MAX_FILE_BYTES, PROJECT_VERSION, ProjectError, cleanFrames, frameFileName, fromLegacyFrames, parseProject, projectFileName, slug, toProject
@@ -11,8 +9,7 @@ import {
 const strip = (p: Project): Project => ({ ...p, updatedAt: '-' });
 
 function sample() {
-  const c: Character = newCharacter({ id: 'c1', x: 270.5, y: 301.25, s: 0.82, r: 12.5, flip: true, hair: 'hat-beanie', hatC: '#ffffff', facial: 'full', pose: presetPose('wave', { top: 'shirt', bottom: 'trousers' }) });
-  c.pose.aR = solveLimb(c, 'aR', [60, -40], -1);          // an arbitrary solved pose with a flipped bend
+  const c: Character = newCharacter({ id: 'c1', x: 270.5, y: 301.25, s: 0.82, r: 12.5, flip: true, hair: 'hat-beanie', hatC: '#ffffff', facial: 'full', body: 'stand-walking-2' });
   const frames: Frame[] = [
     { id: 'f1', bg: '#e7f3fd', scene: 'cafe', note: 'Two colleagues meet.', items: [c,
       { id: 'p1', kind: 'prop', prop: 'bubble', x: 480, y: 118, s: 1, r: 0, flip: false, text: 'Morning! Ready to shoot?' },
@@ -45,7 +42,7 @@ describe('project files', () => {
   });
   it('unknown part ids fall back to the first part, bad colours to defaults', () => {
     const p = fileOf(), c = loose(p.frames[0].items[0]);
-    c.hair = 'no-such-hair'; c.top = 42; c.skin = 'red'; c.topC = '#12';
+    c.hair = 'no-such-hair'; c.face = 42; c.skin = 'red'; c.topC = '#12';
     const r = parseProject(JSON.stringify(p)), got = r.state.frames[0].items[0] as Character;
     expect(got.hair).toBe(HAIR[0].id); expect(got.skin).toBe('#ffffff'); expect(got.topC).toBe('#ffffff');
     expect(r.fixed).toBe(4);
@@ -57,12 +54,12 @@ describe('project files', () => {
     const r = parseProject(JSON.stringify(p));
     expect(r.dropped).toBe(4); expect(r.state.frames[0].items).toHaveLength(3); expect(r.state.frames[0].scene).toBe('none');
   });
-  it('clamps numbers and replaces non-finite values and malformed poses', () => {
-    const p = fileOf(), c = loose(p.frames[0].items[0]), pose = loose(c.pose);
-    c.s = 99; c.x = 'left'; pose.lL = [NaN, 5, 1]; pose.aL = 'nope'; (pose.aR as unknown[])[2] = 7;
+  it('clamps numbers and replaces non-finite values; drops unknown fields', () => {
+    const p = fileOf(), c = loose(p.frames[0].items[0]);
+    c.s = 99; c.x = 'left'; c.pose = { aL: [1, 2, 1] }; c.wings = true;
     const got = parseProject(JSON.stringify(p)).state.frames[0].items[0] as Character;
     expect(got.s).toBe(3); expect(got.x).toBe(480);
-    for (const l of LIMB_IDS) { expect(got.pose[l]).toHaveLength(3); expect(got.pose[l].every(Number.isFinite)).toBe(true); expect([1, -1]).toContain(got.pose[l][2]); }
+    expect('pose' in got).toBe(false); expect('wings' in got).toBe(false);
   });
   it('strips control characters from text', () => {
     const p = fileOf();
@@ -88,28 +85,33 @@ describe('project files', () => {
     for (const gone of ['hat', 'neck', 'neckC']) expect(gone in a, gone).toBe(false);
     expect(toProject(r.state).version).toBe(PROJECT_VERSION);
   });
-  it('migrates version 2 hand-drawn clothes to Open Peeps garments, keeping the pose angles', () => {
-    const c = { ...newCharacter({ id: 'c' }), top: 'hoodie', bottom: 'skirt', shoes: 'boot', pose: { aL: [10, 20, 1], aR: [-30, 40, -1], lL: [5, -10, -1], lR: [0, 0, -1] } };
-    const r = parseProject(JSON.stringify({ version: 2, frames: [{ items: [c, { ...c, id: 'd', top: 'nope' }] }] }));
-    const [a, d] = r.state.frames[0].items as Character[];
-    expect(a).toMatchObject({ top: 'shirt', bottom: 'trousers', shoes: 'slip-ons' });
-    expect(a.pose.aR).toEqual([-30, 40, -1]);
-    expect(d.top).toBe(TOPS[0].id); expect(r.fixed).toBe(1);          // an id no version knew is still repaired
+  it('migrates the posable figure (versions 2 and 3) to the body it was cut from, dropping its clothes and pose', () => {
+    const pose = { aL: [10, 20, 1], aR: [-30, 40, -1], lL: [5, -10, -1], lR: [0, 0, -1] };
+    const fig = { ...newCharacter({ id: 'c', topC: '#ff9a4d' }), body: 'rig', top: 'shirt', bottom: 'trousers', shoes: 'slip-ons', pose };
+    for (const version of [2, 3]) {
+      const r = parseProject(JSON.stringify({ version, frames: [{ items: [fig, { ...fig, id: 'd', body: 'sit-wheelchair' }, { ...fig, id: 'e', body: undefined }] }] }));
+      const [a, d, e] = r.state.frames[0].items as Character[];
+      expect(a.body).toBe(DEFAULT_BODY); expect(a.topC).toBe('#ff9a4d');
+      expect(d.body).toBe('sit-wheelchair'); expect(e.body).toBe(DEFAULT_BODY);
+      for (const gone of ['top', 'bottom', 'shoes', 'pose']) expect(gone in a, gone).toBe(false);
+      expect(r.fixed).toBe(0);
+    }
   });
   it('the vanilla autosave shape gets every migration too', () => {
     const r = cleanFrames(fromLegacyFrames([{ items: [{ type: 'char', top: 'tee', bottom: 'jeans', shoes: 'sneaker', hair: 'crop' }] }]));
-    expect(r.frames[0].items[0]).toMatchObject({ top: 'shirt', bottom: 'trousers', shoes: 'slip-ons', hair: 'short-1' });
+    expect(r.frames[0].items[0]).toMatchObject({ body: DEFAULT_BODY, hair: 'short-1' });
+    expect('top' in r.frames[0].items[0]).toBe(false);
   });
-  it('bodies: kept through a save, the posable figure when missing (older files) or unknown (counted as a fix)', () => {
+  it('bodies: kept through a save; missing or unknown in a current file, repaired and counted', () => {
     const p = fileOf(), c = loose(p.frames[0].items[0]);
     c.body = 'sit-wheelchair';
     expect((parseProject(JSON.stringify(p)).state.frames[0].items[0] as Character).body).toBe('sit-wheelchair');
     delete c.body;
     let r = parseProject(JSON.stringify(p));
-    expect((r.state.frames[0].items[0] as Character).body).toBe('rig'); expect(r.fixed).toBe(0);
-    c.body = 'stand-moonwalk';
+    expect((r.state.frames[0].items[0] as Character).body).toBe(BODIES[0].id); expect(r.fixed).toBe(1);
+    c.body = 'rig';
     r = parseProject(JSON.stringify(p));
-    expect((r.state.frames[0].items[0] as Character).body).toBe('rig'); expect(r.fixed).toBe(1);
+    expect((r.state.frames[0].items[0] as Character).body).toBe(BODIES[0].id); expect(r.fixed).toBe(1);
   });
   it('a version 1 file with unknown ids still repairs them after migrating', () => {
     const r = parseProject(JSON.stringify({ version: 1, frames: [{ items: [{ kind: 'char', hair: 'mullet' }] }] }));

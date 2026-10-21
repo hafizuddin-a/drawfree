@@ -1,17 +1,16 @@
 /* The editor's state container. Everything is immutable: an action builds new frames and items instead of editing in place,
    so React.memo can skip untouched characters and undo snapshots are plain references. */
 import { create } from 'zustand';
-import type { Aspect, Character, ColorSlot, Frame, Item, LimbId, LimbPose, PartSlot, Placement } from '../types';
-import { BODIES, CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, BOTTOMS, SHOES, SKIN, TOPS, PROPS } from '../parts';
-import { presetPose, rig, solveLimb } from '../rig/poses';
+import type { Aspect, Character, ColorSlot, Frame, Item, PartSlot, Placement } from '../types';
+import { BODIES, CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, SKIN, PROPS } from '../parts';
 import { canFlip, newCharacter } from '../rig/renderCharacter';
 import { DEFAULT_NAME, cleanName, type ProjectState } from '../export/project';
 import { DEFAULT_VIEW, type Pt, type View, clampView, panBy as panView, zoomAt } from '../editor/view';
 import { historyActions, type HistorySlice } from './history';
 import { newId, seedFrames } from './seed';
 
-export type TabId = 'body' | 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'extras' | 'props' | 'scene';
-export type ItemAction = 'pose' | 'flip' | 'dup' | 'front' | 'del';
+export type TabId = 'body' | 'hair' | 'face' | 'clothes' | 'extras' | 'props' | 'scene';
+export type ItemAction = 'flip' | 'dup' | 'front' | 'del';
 export interface Toast { id: number; msg: string; ms: number }
 
 export interface EditorState extends HistorySlice {
@@ -19,7 +18,7 @@ export interface EditorState extends HistorySlice {
   aspect: Aspect;
   frames: Frame[];
   fi: number;
-  /** the primary selected item id (the last one clicked; the one the pose tools and the box handles work on) */
+  /** the primary selected item id (the last one clicked; the one the box handles work on) */
   sel: string | null;
   /** the other selected items, when several are selected. Never contains `sel`. */
   extra: string[];
@@ -27,8 +26,6 @@ export interface EditorState extends HistorySlice {
   marquee: { x0: number; y0: number; x1: number; y1: number } | null;
   tab: TabId;
   q: string;
-  /** pose handles are shown for the selected character */
-  pose: boolean;
   toast: Toast | null;
   /** the stage's zoom and pan. Not in undo history and not saved. */
   view: View;
@@ -56,15 +53,12 @@ export interface EditorState extends HistorySlice {
 
   /** no snapshot: callers snap first (drags snap once, after the pointer moves) */
   patchItem: (id: string, patch: Partial<Placement>) => void;
-  setLimb: (id: string, limb: LimbId, pose: LimbPose) => void;
-  flipBend: (id: string, limb: LimbId) => void;
   beginTextEdit: () => void;
   setBubbleText: (text: string) => void;
   setNote: (text: string) => void;
 
   applyPart: (slot: PartSlot, id: string) => void;
   applyColor: (slot: ColorSlot, color: string) => void;
-  applyPose: (id: string) => void;
   addProp: (id: string) => void;
   addChar: () => void;
   shuffle: () => void;
@@ -121,7 +115,7 @@ export const NEW_BODY = 'stand-resting-1';
 
 const initialState = () => ({
   name: DEFAULT_NAME, aspect: '16:9' as Aspect, frames: seedFrames(), fi: 0, sel: null as string | null, extra: [] as string[], marquee: null as EditorState['marquee'],
-  tab: 'hair' as TabId, q: '', pose: false, toast: null as Toast | null, view: DEFAULT_VIEW, art: 0, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
+  tab: 'hair' as TabId, q: '', toast: null as Toast | null, view: DEFAULT_VIEW, art: 0, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
 });
 
 export const useEditor = create<EditorState>()((set, get) => {
@@ -175,12 +169,6 @@ export const useEditor = create<EditorState>()((set, get) => {
     setName: name => set({ name: cleanName(name) }),
 
     patchItem: (id, patch) => set(s => ({ frames: editItem(s, id, it => ({ ...it, ...patch })) })),
-    setLimb: (id, limb, pose) => set(s => ({ frames: editItem(s, id, it => mapChar(it, c => ({ ...c, pose: { ...c.pose, [limb]: pose } }))) })),
-    flipBend: (id, limb) => {
-      if (!currentFrame(get()).items.some(i => i.id === id)) return;
-      h.snap();
-      set(s => ({ frames: editItem(s, id, i => mapChar(i, c => ({ ...c, pose: { ...c.pose, [limb]: solveLimb(c, limb, rig(c)[limb][2], c.pose[limb][2] === 1 ? -1 : 1) } }))) }));
-    },
     beginTextEdit: () => h.snap(),
     setBubbleText: text => {
       const id = get().sel; if (!id) return;
@@ -188,14 +176,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
     setNote: text => set(s => ({ frames: editFrame(s, f => ({ ...f, note: text })) })),
 
-    applyPart: (slot, id) => {
-      // pose handles belong to the posable figure
-      if (slot === 'body' && id !== 'rig') set({ pose: false });
-      editChar(c => ({ ...c, [slot]: id }));
-    },
+    applyPart: (slot, id) => editChar(c => ({ ...c, [slot]: id })),
     applyColor: (slot, color) => editChar(c => ({ ...c, [slot]: color })),
-    // a preset pose is for the posable figure, so it switches an Open Peeps body to it
-    applyPose: id => editChar(c => ({ ...c, body: 'rig', pose: presetPose(id, c) })),
 
     addProp: id => {
       h.snap();
@@ -208,7 +190,6 @@ export const useEditor = create<EditorState>()((set, get) => {
     addChar: () => {
       h.snap();
       const n = currentFrame(get()).items.filter(i => i.kind === 'char').length;
-      // new characters get an Open Peeps body (founder's choice); the posable figure is one pick away in the Body tab
       const c = newCharacter({ id: newId(), x: 240 + (n % 4) * 160, y: 300, body: NEW_BODY });
       set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, c] })), sel: c.id, extra: [] }));
     },
@@ -219,12 +200,12 @@ export const useEditor = create<EditorState>()((set, get) => {
         get().addChar(); c = charTarget(get());
         if (!c) return;
       } else h.snap();
-      const kind = BODIES.find(b => b.id === c.body)?.kind ?? 'rig';
+      const kind = BODIES.find(b => b.id === c.body)?.kind ?? 'stand';
       const look: Partial<Character> = {
-        // an Open Peeps body changes to another of the same kind (standing, sitting, waist up); the figure stays
-        body: kind === 'rig' ? 'rig' : pickId(BODIES.filter(b => b.kind === kind)),
-        hair: pickId(HAIR), hairC: pick(HAIRC), face: pickId(FACE), skin: pick(SKIN), top: pickId(TOPS), topC: pick(CLOTH),
-        bottom: pickId(BOTTOMS), botC: pick(CLOTH), shoes: pickId(SHOES), shoeC: pick(CLOTH), hatC: pick(CLOTH),
+        // the body changes to another of the same kind (standing, sitting, waist up), so the scene still makes sense
+        body: pickId(BODIES.filter(b => b.kind === kind)),
+        hair: pickId(HAIR), hairC: pick(HAIRC), face: pickId(FACE), skin: pick(SKIN), topC: pick(CLOTH),
+        botC: pick(CLOTH), shoeC: pick(CLOTH), hatC: pick(CLOTH),
         glasses: Math.random() < 0.4 ? pickId(GLASSES) : 'none', facial: Math.random() < 0.3 ? pickId(FACIAL) : 'none'
       };
       const id = c.id;
@@ -232,10 +213,6 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
     act: a => {
       if (!selectedItem(get())) return;
-      if (a === 'pose') {                                                      // posing works on one character: the primary selection
-        set(s => (s.pose ? { pose: false } : { pose: true, tab: 'body', q: '' }));
-        return;
-      }
       const picked = selectedItems(get()), ids = new Set(picked.map(i => i.id));
       h.snap();
       if (a === 'flip') set(s => ({ frames: editFrame(s, f => ({ ...f, items: f.items.map(i => (ids.has(i.id) && canFlip(i) ? { ...i, flip: !i.flip } : i)) })) }));

@@ -1,17 +1,13 @@
-/* Pointer dragging: move, scale, rotate and joint (IK) dragging.
+/* Pointer dragging: move, scale, rotate, marquee and pan.
    The stage re-renders on every change, so the drag session lives in a ref and the move and up listeners sit on window,
    never on elements. snap() runs once, after the pointer has actually moved, so a click never creates an undo step. */
 import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
-import { RAD } from '../rig/geometry';
-import { solveLimb } from '../rig/poses';
-import { figureRect } from './measure';
 import { currentFrame, selectedIds, selectedItem, useEditor } from '../state/store';
 import type { Placement } from '../types';
 
 type Drag =
   | { k: 'move'; id: string; ids: string[]; starts: Record<string, { x: number; y: number }>; px: number; py: number; x0: number; y0: number; snapped: boolean }
   | { k: 'marquee'; x0: number; y0: number; additive: boolean; base: string[]; started: boolean }
-  | { k: 'joint'; id: string; limb: 'aL' | 'aR' | 'lL' | 'lR'; snapped: boolean }
   | { k: 'rotate'; id: string; cx: number; cy: number; a0: number; r0: number; snapped: boolean }
   | { k: 'scale'; id: string; cx: number; cy: number; d0: number; s0: number; snapped: boolean }
   | { k: 'pan'; x0: number; y0: number; cx0: number; cy0: number; upp: number };
@@ -21,6 +17,7 @@ function pinchOf(touches: ReadonlyMap<number, { x: number; y: number }>): { d: n
   const [a, b] = [...touches.values()];
   return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
 }
+const RAD = Math.PI / 180;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const toLocal = (m: DOMMatrix | null, x: number, y: number) => (m ? new DOMPoint(x, y).matrixTransform(m.inverse()) : { x, y });
 const findItem = (id: string) => currentFrame(useEditor.getState()).items.find(i => i.id === id);
@@ -51,7 +48,7 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
         const st = useEditor.getState(), l = Math.min(d.x0, e.clientX), r = Math.max(d.x0, e.clientX), t = Math.min(d.y0, e.clientY), b = Math.max(d.y0, e.clientY);
         st.setMarquee({ x0: d.x0, y0: d.y0, x1: e.clientX, y1: e.clientY });
         const hit = [...(stage?.querySelectorAll<SVGGElement>('.item') ?? [])].filter(el => {
-          const fig = el.querySelector('.figure'), q = fig ? figureRect(fig) : el.getBoundingClientRect();
+          const q = (el.querySelector('.figure') ?? el).getBoundingClientRect();
           return q.right >= l && q.left <= r && q.bottom >= t && q.top <= b;
         }).map(el => el.dataset.id ?? '');
         st.selectMany(d.additive ? [...new Set([...d.base, ...hit])] : hit);
@@ -73,12 +70,6 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
         const p = toLocal(stage.getScreenCTM(), e.clientX, e.clientY), patches: Record<string, Partial<Placement>> = {};
         for (const id of d.ids) { const s0 = d.starts[id]; patches[id] = { x: clamp(s0.x + p.x - d.px, -40, 1000), y: clamp(s0.y + p.y - d.py, -40, 700) }; }
         st.patchItems(patches);
-      } else if (d.k === 'joint' && it.kind === 'char') {
-        // inverse of the body's screen matrix: the joint lands on the pointer after flip, rotation and scale
-        const body = stage.querySelector<SVGGElement>(`.item[data-id="${it.id}"] .body`);
-        if (!body) return;
-        const pt = toLocal(body.getScreenCTM(), e.clientX, e.clientY);
-        st.setLimb(it.id, d.limb, solveLimb(it, d.limb, [pt.x, pt.y], it.pose[d.limb][2]));
       } else if (d.k === 'rotate') {
         let r = d.r0 + (Math.atan2(e.clientX - d.cx, -(e.clientY - d.cy)) - d.a0) / RAD;
         if (e.shiftKey) r = Math.round(r / 15) * 15;
@@ -107,7 +98,7 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', onBlur); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp); };
   }, [stageRef]);
 
-  /** pointer down on the stage: select, flip a bend, or start a move or joint drag */
+  /** pointer down on the stage: select, or start a move, marquee or pan */
   const onStagePointerDown = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     const stage = stageRef.current, t = e.target as Element, el = t.closest?.('.item');
     const st = useEditor.getState();
@@ -130,9 +121,6 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
     const it = findItem(el.getAttribute('data-id') ?? '');
     if (!it) return;
     e.preventDefault();
-    const limb = t.getAttribute('data-limb') as 'aL' | 'aR' | 'lL' | 'lR' | null;
-    if (limb && t.classList.contains('bh')) { st.flipBend(it.id, limb); return; }   // elbow or knee dot: flip the bend
-    if (limb && t.classList.contains('jh')) { drag.current = { k: 'joint', id: it.id, limb, snapped: false }; return; }
     if (e.shiftKey) { st.toggleSelect(it.id); return; }                          // Shift-click adds or removes it
     if (!selectedIds(st).includes(it.id)) st.select(it.id);                      // an item already in the selection keeps the group together
     const moving = new Set(selectedIds(useEditor.getState())), starts: Record<string, { x: number; y: number }> = {};

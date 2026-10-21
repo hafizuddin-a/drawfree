@@ -41,49 +41,17 @@ test.describe('moving, scaling and rotating', () => {
   });
 });
 
-test.describe('posing', () => {
-  test('dragging a hand handle follows the pointer, and the elbow dot flips the bend', async ({ page }) => {
-    await selectFirstChar(page);
-    await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
-    await expect(page.getByRole('tab', { name: 'Body' })).toHaveAttribute('aria-selected', 'true');
-    const hand = page.locator('.jh.hitc[data-limb="aL"]'), from = await centre(hand);
-    const to = { x: from.x - 14, y: from.y - 30 };
-    await drag(page, from, to);
-    const now = await centre(hand);
-    expect(Math.hypot(now.x - to.x, now.y - to.y)).toBeLessThan(8);             // the joint lands on the pointer
-    await page.getByRole('button', { name: 'Undo' }).click();
-    const back = await centre(hand);
-    expect(Math.hypot(back.x - from.x, back.y - from.y)).toBeLessThan(3);
-
-    const before = await centre(page.locator('.bh.hitc[data-limb="aL"]'));
-    await page.mouse.click(before.x, before.y);                                    // the elbow dot
-    const hand2 = await centre(hand);
-    expect(Math.hypot(hand2.x - from.x, hand2.y - from.y)).toBeLessThan(3);       // the hand stays put
-  });
-
-  test('a preset pose changes the arms', async ({ page }) => {
-    await selectFirstChar(page);
-    await page.getByRole('tab', { name: 'Body' }).click();
-    const before = await body(page).innerHTML();
-    await page.getByRole('button', { name: 'Cheering' }).click();
-    expect(await body(page).innerHTML()).not.toBe(before);
-  });
-});
-
 test.describe('Open Peeps bodies', () => {
-  test('a body from the Body tab: its art loads, the selection box fits it, Pose is not offered, and a preset pose brings the figure back', async ({ page }) => {
+  test('a body from the Body tab: its art loads and the selection box fits it', async ({ page }) => {
     await selectFirstChar(page);
     await page.getByRole('tab', { name: 'Body' }).click();
     await page.getByRole('button', { name: 'Cycling' }).click();
-    await expect(page.getByRole('toolbar').getByRole('button', { name: 'Pose' })).toHaveCount(0);
     // the art arrives as a separate chunk; once it has, the box hugs the bike (measured as the app does, without
     // strokes), which is far wider than a head on its own
     await expect.poll(() => page.evaluate(() => {
       const s = (document.querySelector('[class*="selbox"]') as HTMLElement).getBoundingClientRect(), g = (document.querySelector('#stage .item .body .figure') as SVGGElement).getBoundingClientRect();
       return Math.abs(s.width - g.width) < 30 && g.width > 150;
     })).toBe(true);
-    await page.getByRole('button', { name: 'Waving' }).click();
-    await expect(page.getByRole('toolbar').getByRole('button', { name: 'Pose' })).toBeVisible();
   });
 });
 
@@ -230,25 +198,6 @@ test.describe('frames', () => {
   });
 });
 
-test.describe('touch targets', () => {
-  test('pose handles have hit areas of at least 44 px (hand and foot) and 32 px (elbow and knee)', async ({ page }) => {
-    await selectFirstChar(page);
-    await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
-    for (const limb of ['aL', 'aR', 'lL', 'lR']) {
-      const hand = await box(page.locator(`.jh.hitc[data-limb="${limb}"]`)), joint = await box(page.locator(`.bh.hitc[data-limb="${limb}"]`));
-      expect(hand.width, `${limb} hand`).toBeGreaterThanOrEqual(43);
-      expect(joint.width, `${limb} joint`).toBeGreaterThanOrEqual(31);
-    }
-  });
-
-  test('the visible hand dot is easy to see and big enough to aim at', async ({ page }) => {
-    await selectFirstChar(page);
-    await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
-    const dot = await page.locator('.jh.hitc[data-limb="aR"] + circle').first();
-    expect((await box(dot)).width).toBeGreaterThanOrEqual(17);
-  });
-});
-
 test.describe('zoom and pan', () => {
   const viewBox = (page: import('@playwright/test').Page) => page.locator('#stage').getAttribute('viewBox');
   const FULL = '0 0 960 540';
@@ -287,18 +236,6 @@ test.describe('zoom and pan', () => {
     expect(after[0]).toBeGreaterThan(before[0]); expect(after[2]).toBe(before[2]);                  // moved, same zoom
     expect(await transformOf(page)).toBe(t0);                                                      // no character moved
     await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
-  });
-
-  test('zoomed in, handles stay 44 px and a hand still lands on the pointer', async ({ page }) => {
-    await page.getByRole('button', { name: 'Zoom in' }).click(); await page.getByRole('button', { name: 'Zoom in' }).click();
-    await selectFirstChar(page);
-    await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
-    const hand = page.locator('.jh.hitc[data-limb="aL"]');
-    expect((await box(hand)).width).toBeGreaterThanOrEqual(43);
-    const from = await centre(hand), to = { x: from.x - 12, y: from.y - 40 };
-    await drag(page, from, to);
-    const now = await centre(hand);
-    expect(Math.hypot(now.x - to.x, now.y - to.y)).toBeLessThan(8);
   });
 
   test('the selection box follows the character after zooming', async ({ page }) => {

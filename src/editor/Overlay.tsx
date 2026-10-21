@@ -4,7 +4,6 @@ import { type SelBox, boxFromCorners, handleSide, toolbarSpot } from './box';
 import { f1 } from '../parts/draw';
 import { Icon } from '../ui/icons';
 import { Toolbar } from '../ui/Toolbar';
-import { figureBBox, figureRect } from './measure';
 import styles from './Editor.module.css';
 
 /** The selection box turns with the item. It is measured from the rendered .body group: its local bounding box, with the four corners
@@ -22,7 +21,7 @@ interface Props {
 export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
   useEditor(s => s.view);   // re-measure when the view moves
   useEditor(s => s.art);    // and when the Open Peeps body art arrives (the figure grows)
-  const it = useEditor(selectedItem), pose = useEditor(s => s.pose), resetRotation = useEditor(s => s.resetRotation);
+  const it = useEditor(selectedItem), resetRotation = useEditor(s => s.resetRotation);
   const extra = useEditor(s => s.extra), marquee = useEditor(s => s.marquee);
   const group = extra.length > 0;
   const [box, setBox] = useState<Measured | null>(null);
@@ -31,7 +30,7 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     // several items selected: one upright box around all of them (their figures, not their shadows)
     if (it && extra.length && stageRef.current && boardRef.current) {
       const b = boardRef.current.getBoundingClientRect();
-      const rects = [it.id, ...extra].map(id => stageRef.current?.querySelector(`.item[data-id="${id}"] .figure`)).filter((f): f is Element => !!f).map(figureRect);
+      const rects = [it.id, ...extra].map(id => stageRef.current?.querySelector(`.item[data-id="${id}"] .figure`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
       if (!rects.length) { setBox(prev => (prev === null ? prev : null)); return; }
       const l = Math.min(...rects.map(r => r.left)) - b.left, t = Math.min(...rects.map(r => r.top)) - b.top;
       const r = Math.max(...rects.map(q => q.right)) - b.left, bt = Math.max(...rects.map(q => q.bottom)) - b.top;
@@ -42,11 +41,8 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     const g = it && stageRef.current?.querySelector<SVGGElement>(`.item[data-id="${it.id}"] .body`);
     const board = boardRef.current, m = g?.getScreenCTM();
     if (!g || !board || !m) { setBox(b => (b === null ? b : null)); return; }
-    // the figure and the pose handles, not the ground shadow (which is wider than the character and vanishes past 8 degrees of turn)
-    const parts = [...g.querySelectorAll<SVGGraphicsElement>(':scope > .figure, :scope > .handles')];
-    const boxes = (parts.length ? parts : [g]).map(p => (p.classList.contains('figure') ? figureBBox(p) : p.getBBox()));
-    const x0 = Math.min(...boxes.map(q => q.x)), y0 = Math.min(...boxes.map(q => q.y));
-    const bb = { x: x0, y: y0, width: Math.max(...boxes.map(q => q.x + q.width)) - x0, height: Math.max(...boxes.map(q => q.y + q.height)) - y0 };
+    // the figure, not the ground shadow (which is wider than the character and vanishes past 8 degrees of turn)
+    const bb = (g.querySelector<SVGGraphicsElement>(':scope > .figure') ?? g).getBBox();
     const b = board.getBoundingClientRect();
     const corner = (x: number, y: number) => { const p = new DOMPoint(x, y).matrixTransform(m); return { x: p.x - b.left, y: p.y - b.top }; };
     const next: Measured = {
@@ -56,7 +52,7 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     setBox(prev => (same(prev, next) ? prev : next));
   }, [it, extra, stageRef, boardRef]);
 
-  // after every render, so the box follows drags, scaling and pose changes. setBox ignores unchanged boxes, so this cannot loop.
+  // after every render, so the box follows drags, scaling and part changes. setBox ignores unchanged boxes, so this cannot loop.
   useLayoutEffect(() => { measure(); });
   useLayoutEffect(() => {
     const board = boardRef.current;
@@ -80,8 +76,7 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     <div className={styles.overlay}>
       {mq}
       <div className={`${styles.selbox} ${group ? styles.group : ''}`} style={{ left: f1(box.cx - box.w / 2), top: f1(box.cy - box.h / 2), width: f1(box.w), height: f1(box.h), transform: `rotate(${box.angle}deg)` }}>
-        {/* in Pose mode the corners would sit on top of raised hands, so scaling waits until Pose is turned off */}
-        {!pose && !group && (['nw', 'ne', 'sw', 'se'] as const).map(c => (
+        {!group && (['nw', 'ne', 'sw', 'se'] as const).map(c => (
           <i key={c} role="presentation" className={styles.corner} data-c={c} style={{ top: c[0] === 'n' ? '0' : '100%', left: c[1] === 'w' ? '0' : '100%' }}
             onPointerDown={e => onHandleDown(e, 'scale')} />
         ))}

@@ -1,14 +1,8 @@
 /* Drawfree data model. Everything the user makes is plain JSON built from these types; SVG is never stored. */
 
 export type Vec = [number, number];
-export type LimbId = 'aL' | 'aR' | 'lL' | 'lR';
-/** +1 folds an arm forward, -1 folds a leg's knee forward; kept while dragging. */
-export type Bend = 1 | -1;
-/** [upperAngle, lowerAngle, bendSign] in degrees: 0 is straight down, positive swings toward +x. */
-export type LimbPose = [number, number, Bend];
-export type Pose = Record<LimbId, LimbPose>;
 
-export type PartSlot = 'body' | 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'glasses' | 'facial';
+export type PartSlot = 'body' | 'hair' | 'face' | 'glasses' | 'facial';
 export type ColorSlot = 'skin' | 'hairC' | 'topC' | 'botC' | 'shoeC' | 'hatC';
 
 export interface Placement {
@@ -21,7 +15,8 @@ export interface Placement {
   flip: boolean;
 }
 
-export type Character = { id: string; kind: 'char'; pose: Pose } & Placement & Record<PartSlot, string> & Record<ColorSlot, string>;
+/** An Open Peeps character: a body (which comes dressed and posed), a head, and the colours that recolour both. */
+export type Character = { id: string; kind: 'char' } & Placement & Record<PartSlot, string> & Record<ColorSlot, string>;
 
 export interface Prop extends Placement {
   id: string;
@@ -48,7 +43,7 @@ export interface Frame {
 export type Aspect = '16:9' | '4:3' | '1:1' | '9:16';
 
 export interface Project {
-  version: 3;
+  version: 4;
   name: string;
   frames: Frame[];
   aspect: Aspect;
@@ -66,20 +61,9 @@ export interface PartInfo {
 export interface PeepArt { id: string; name: string; l: ReadonlyArray<readonly [kind: string, d: string]> }
 /** Hairstyles (which include the head), expressions, facial hair and glasses are all Open Peeps parts. */
 export interface PeepPart extends PartInfo { art: PeepArt }
-/** A body: the posable figure ('rig') or an Open Peeps body standing, sitting or waist up. `box` is the Open Peeps
-    art's bounds in rig space [x0, y0, x1, y1]; the art itself loads on demand (parts/bodies.ts). */
-export interface BodyPart extends PartInfo { kind: 'rig' | 'stand' | 'sit' | 'bust'; box?: readonly [number, number, number, number] }
-/** A garment for the posable figure: the clothes of an Open Peeps body (`art`) in a cutout family (parts/cutout.ts).
-    A top dresses the torso and arms, a bottom the pelvis and legs, shoes the feet, each cut from its own art. */
-export interface GarmentPart extends PartInfo { fam: string; art: string }
-export type TopPart = GarmentPart;
-export type BottomPart = GarmentPart;
-export type ShoePart = GarmentPart;
-
-export type PoseTargets = Record<LimbId, [Vec, Bend]>;
-/** `t` holds targets for the limbs the preset moves; the others stay as the art was drawn */
-export interface PosePreset extends PartInfo { t: Partial<PoseTargets> }
-
+/** An Open Peeps body standing, sitting or waist up. `box` is the art's bounds in rig space [x0, y0, x1, y1]; the
+    art itself loads on demand (parts/bodies.ts). */
+export interface BodyPart extends PartInfo { kind: 'stand' | 'sit' | 'bust'; box: readonly [number, number, number, number] }
 export interface PropArgs { text?: string }
 export interface PropPart extends PartInfo {
   noFlip?: boolean;

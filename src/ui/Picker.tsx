@@ -3,7 +3,6 @@ import type { Character, PartInfo } from '../types';
 import { charTarget, currentFrame, selectedItem, useEditor } from '../state/store';
 import { SECS, SEARCHABLE, TABS, isListSection, type ColorSection, type ListSection, type SectionId } from './sections';
 import { lookKey, thumbSrc } from './thumbs';
-import { isPosable } from '../rig/renderCharacter';
 import { Icon } from './icons';
 import { Tabs } from './Tabs';
 import styles from './Picker.module.css';
@@ -43,7 +42,6 @@ function pick(e: MouseEvent<HTMLButtonElement>): void {
   if (!isListSection(sec)) return;
   if (sec.kind === 'props') st.addProp(id);
   else if (sec.kind === 'scene') st.setScene(id);
-  else if (sec.kind === 'pose') st.applyPose(id);
   else st.applyPart(sec.slot, id);
 }
 
@@ -93,7 +91,6 @@ export function Picker() {
   const base = useDeferredValue(liveBase);
   const baseKey = useMemo(() => (base ? lookKey(base) : ''), [base]);
   const ctx: Ctx = { base, baseKey, bg, scene };
-  const peep = base !== null && !isPosable(base);
 
   const query = q.trim().toLowerCase();
   let body: ReactNode;
@@ -108,8 +105,7 @@ export function Picker() {
     body = (
       <>
         {!base && tab !== 'props' && tab !== 'scene' && <p className={styles.hint}>Click a character on the board to dress it.</p>}
-        {peep && (tab === 'top' || tab === 'bottom' || tab === 'shoes') && <p className={styles.hint}>This body comes dressed, and the colours below recolour it. The parts dress the posable figure (Body tab).</p>}
-        {tab === 'body' && <p className={styles.hint}>The posable figure's arms and legs follow your drag: pick a starting pose, then turn on Pose in the toolbar and drag the blue hand and foot dots (a white elbow or knee dot flips its bend). The Open Peeps bodies below come dressed in a fixed pose.</p>}
+        {tab === 'body' && <p className={styles.hint}>Each body comes in its own pose. Pick the one closest to the moment; Flip turns it to face the other way.</p>}
         {tab === 'props' && sel && sel.kind === 'prop' && sel.prop === 'bubble' && <BubbleText text={sel.text ?? ''} />}
         {cur.secs.map(id => {
           const sec = SECS[id];

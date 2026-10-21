@@ -2,7 +2,6 @@
 import type { Frame } from '../types';
 import { DEFAULT_BG } from '../scenes/backgrounds';
 import { newCharacter } from '../rig/renderCharacter';
-import { presetPose } from '../rig/poses';
 
 let counter = 1;
 /** short unique id */
@@ -10,8 +9,7 @@ export const newId = (): string => 'i' + (counter++) + Math.random().toString(36
 
 export function seedFrames(): Frame[] {
   const A = newCharacter({ id: newId(), x: 270, y: 300, s: 0.82, hair: 'hat-beanie', hatC: '#ffe08a', facial: 'full', skin: '#c68a62', face: 'smile-big',
-    top: 'shirt-light-buttons', topC: '#141414', bottom: 'trousers', botC: '#cfe8ff', pose: presetPose('wave', { top: 'shirt-light-buttons', bottom: 'trousers' }) });
-  // one posable figure (waving) and one Open Peeps body, so both kinds are on the board from the start
+    body: 'stand-pointing-finger-1', topC: '#141414', botC: '#cfe8ff' });
   const B = newCharacter({ id: newId(), x: 690, y: 300, s: 0.82, flip: true, body: 'stand-blazer-3', hair: 'gray-bun', hairC: '#c97b4a', glasses: 'glasses', face: 'explaining',
     topC: '#ffe08a', botC: '#ffffff', shoeC: '#141414' });
   return [{
