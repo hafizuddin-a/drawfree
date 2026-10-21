@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BODIES, BOTTOMS, CLOTH, FACE, FACIAL, GLASSES, HAIR, HAIRC, PROPS, SHOES, SKIN, TOPS } from '.';
+import { BODIES, CLOTH, FACE, FACIAL, GLASSES, HAIR, HAIRC, PROPS, SKIN } from '.';
 import { bodyArt } from './bodies';
-import { GROUND, charBounds, isPosable, itemShadow } from '../rig/renderCharacter';
+import { GROUND, charBounds, itemShadow } from '../rig/renderCharacter';
 import { peepSVG } from './peeps/art';
-import { POSES, poseFrom } from '../rig/poses';
 import { charSVG, itemSVG, newCharacter, propSVG } from '../rig/renderCharacter';
 import { BGC } from '../scenes/backgrounds';
 import { SCENES, frameBG } from '../scenes/scenes';
@@ -30,7 +29,7 @@ describe('every part draws well-formed SVG for every palette colour', () => {
     }
   });
   it('every Open Peeps body has art and bounds, and draws with every skin and clothes colour', () => {
-    for (const b of BODIES.filter(x => x.kind !== 'rig')) {
+    for (const b of BODIES) {
       const art = bodyArt(b.id);
       expect(art, b.id).toBeDefined();
       expect(b.box, b.id).toHaveLength(4);
@@ -47,21 +46,17 @@ describe('every part draws well-formed SVG for every palette colour', () => {
       const [x0, y0, x1, y1] = charBounds(c);
       expect(x0).toBeLessThanOrEqual(box[0]); expect(x1).toBeGreaterThanOrEqual(box[2]);
       expect(y0).toBeLessThan(box[1] + dy); expect(y1).toBeGreaterThanOrEqual(GROUND);
-      expect(isPosable(c)).toBe(false);
       expect(itemShadow(c) === '', b.id).toBe(b.kind === 'bust');
     }
-    expect(isPosable(base)).toBe(true);
   });
   it('the colour kinds reach the right colours', () => {
     const l: Array<readonly [string, string]> = ['s', 'h', 'a', 't', 'b', 'f', 'w', 'i', '#4f66af'].map(k => [k, 'm0 0'] as const);
     const svg = peepSVG({ id: 't', name: 't', l }, { skin: '#111111', hair: '#222222', hat: '#333333', top: '#444444', bottom: '#555555', shoe: '#666666' });
     expect(svg.match(/fill="[^"]+"/g)).toEqual(['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#ffffff', '#141414', '#4f66af'].map(c => `fill="${c}"`));
   });
-  it('tops, bottoms and shoes on the posable figure, in every colour and skin tone', () => {
+  it('every body as a whole character in every clothes colour (skin tones are covered above)', () => {
     const base = newCharacter();
-    for (const t of TOPS) for (const c of CLOTH) for (const s of SKIN) assertWellFormed(charSVG({ ...base, top: t.id, topC: c, skin: s }), `top ${t.id} ${c} ${s}`);
-    for (const b of BOTTOMS) for (const c of CLOTH) assertWellFormed(charSVG({ ...base, bottom: b.id, botC: c }), `bottom ${b.id} ${c}`);
-    for (const sh of SHOES) for (const c of CLOTH) assertWellFormed(charSVG({ ...base, shoes: sh.id, shoeC: c }), `shoes ${sh.id} ${c}`);
+    for (const b of BODIES) for (const c of CLOTH) assertWellFormed(charSVG({ ...base, body: b.id, topC: c, botC: c, shoeC: c }), `${b.id} ${c}`);
   });
   it('props, including a speech bubble with awkward text', () => {
     for (const p of PROPS) assertWellFormed(propSVG({ prop: p.id, text: p.text }), p.id);
@@ -70,11 +65,11 @@ describe('every part draws well-formed SVG for every palette colour', () => {
   it('scenes on every background colour', () => {
     for (const s of SCENES) for (const bg of BGC) assertWellFormed(frameBG({ bg, scene: s.id }), `scene ${s.id} ${bg}`);
   });
-  it('whole characters: every part combination slot by slot, every pose, flipped and rotated', () => {
+  it('whole characters: every part slot by slot, flipped and rotated', () => {
     const base = newCharacter();
-    const slots = { body: BODIES, hair: HAIR, face: FACE, top: TOPS, bottom: BOTTOMS, shoes: SHOES, glasses: GLASSES, facial: FACIAL };
+    const slots = { body: BODIES, hair: HAIR, face: FACE, glasses: GLASSES, facial: FACIAL };
     for (const [slot, list] of Object.entries(slots)) for (const p of list) assertWellFormed(charSVG({ ...base, [slot]: p.id }), `${slot} ${p.id}`);
-    for (const p of POSES) assertWellFormed(itemSVG({ ...base, pose: poseFrom(base, p.t), flip: true, r: 30 }), `pose ${p.id}`);
+    for (const b of BODIES) assertWellFormed(itemSVG({ ...base, body: b.id, flip: true, r: 30 }), `turned ${b.id}`);
   });
 });
 
@@ -88,7 +83,7 @@ describe('the well-formedness check itself', () => {
 
 describe('part data', () => {
   it('ids are unique within each list and every part has a name and tags', () => {
-    for (const list of [BODIES, HAIR, FACE, GLASSES, FACIAL, TOPS, BOTTOMS, SHOES, PROPS, POSES, SCENES]) {
+    for (const list of [BODIES, HAIR, FACE, GLASSES, FACIAL, PROPS, SCENES]) {
       expect(new Set(list.map(p => p.id)).size).toBe(list.length);
       for (const p of list) { expect(p.name).toBeTruthy(); expect(p.tags.length).toBeGreaterThan(0); }
     }
@@ -97,7 +92,7 @@ describe('part data', () => {
     expect(GLASSES[0].art.l).toEqual([]); expect(FACIAL[0].art.l).toEqual([]);
   });
   it('unknown part ids render the first part instead of throwing', () => {
-    const odd = newCharacter({ hair: 'nope', face: 'nope', top: 'nope', bottom: 'nope', shoes: 'nope', glasses: 'nope', facial: 'nope', body: 'nope' });
+    const odd = newCharacter({ hair: 'nope', face: 'nope', glasses: 'nope', facial: 'nope', body: 'nope' });
     expect(() => charSVG(odd)).not.toThrow();
     expect(propSVG({ prop: 'nope' })).toBe(propSVG({ prop: PROPS[0].id }));
   });

@@ -1,13 +1,12 @@
 /* Project files (.drawfree.json): validate untrusted input, migrate by version, build file names. Pure data code. */
-import type { Aspect, Character, ColorSlot, Frame, Item, LimbId, LimbPose, Pose, Project, Prop } from '../types';
+import type { Aspect, Character, ColorSlot, Frame, Item, Project, Prop } from '../types';
 import { PART_LISTS, PART_SLOTS, PROPS, hasPart } from '../parts';
 import { XML_ILLEGAL } from '../parts/draw';
-import { LIMB_IDS } from '../rig/geometry';
-import { newCharacter } from '../rig/renderCharacter';
+import { DEFAULT_BODY, newCharacter } from '../rig/renderCharacter';
 import { DEFAULT_BG } from '../scenes/backgrounds';
 import { hasScene } from '../scenes/scenes';
 
-export const PROJECT_VERSION = 3;
+export const PROJECT_VERSION = 4;
 const ASPECTS: readonly Aspect[] = ['16:9', '4:3', '1:1', '9:16'];
 export const DEFAULT_NAME = 'Untitled storyboard';
 const MAX_FRAMES = 200, MAX_ITEMS = 200;
@@ -28,16 +27,6 @@ const rid = (): string => 'i' + Math.random().toString(36).slice(2, 9);
 export const cleanName = (v: unknown): string => cleanText(v, 80).trim() || DEFAULT_NAME;
 export const cleanAspect = (v: unknown): Aspect => ASPECTS.find(a => a === v) ?? '16:9';
 
-function cleanPose(raw: unknown, base: Pose): Pose {
-  const out = {} as Pose;
-  LIMB_IDS.forEach((l: LimbId) => {
-    const p = isObj(raw) ? raw[l] : null;
-    const ok = Array.isArray(p) && typeof p[0] === 'number' && Number.isFinite(p[0]) && typeof p[1] === 'number' && Number.isFinite(p[1]);
-    out[l] = ok ? [p[0] as number, p[1] as number, p[2] === -1 ? -1 : 1] as LimbPose : [...base[l]] as LimbPose;
-  });
-  return out;
-}
-
 function cleanItem(raw: unknown, fix: Fixes): Item | null {
   if (!isObj(raw)) return null;
   const id = typeof raw.id === 'string' && raw.id ? raw.id.slice(0, 40) : rid();
@@ -46,8 +35,6 @@ function cleanItem(raw: unknown, fix: Fixes): Item | null {
   if (raw.kind === 'char') {
     const base = newCharacter(), c: Character = { ...base, ...place(base), id };
     for (const k of PART_SLOTS) {
-      // files from before bodies existed have none: the posable figure, quietly
-      if (k === 'body' && raw.body === undefined) { c.body = 'rig'; continue; }
       const ok = hasPart(PART_LISTS[k], raw[k]);
       if (!ok) fix.fixed++;
       c[k] = ok ? (raw[k] as string) : PART_LISTS[k][0].id;
@@ -57,7 +44,6 @@ function cleanItem(raw: unknown, fix: Fixes): Item | null {
       if (!ok) fix.fixed++;
       c[k] = ok ? (raw[k] as string) : base[k];
     }
-    c.pose = cleanPose(raw.pose, base.pose);
     return c;
   }
   const def = raw.kind === 'prop' ? PROPS.find(p => p.id === raw.prop) : undefined;
@@ -116,26 +102,27 @@ export function framesV1toV2(raw: unknown): unknown {
   return raw.map(f => (isObj(f) && Array.isArray(f.items) ? { ...f, items: f.items.map(itemV1toV2) } : f));
 }
 
-/* Version 3 (milestone 6) made the posable figure a cutout puppet of Open Peeps art and dropped the hand-drawn tops,
-   bottoms and shoes for Open Peeps clothes. Poses are bone angles either way, so they carry over as they are. */
-const V3_TOP: Record<string, string> = { tee: 'shirt', hoodie: 'shirt', blazer: 'shirt', tank: 'shirt', sweater: 'shirt', jacket: 'shirt' };
-const V3_BOTTOM: Record<string, string> = { jeans: 'trousers', shorts: 'trousers', skirt: 'trousers', wide: 'trousers' };
-const V3_SHOES: Record<string, string> = { sneaker: 'slip-ons', boot: 'slip-ons', sandal: 'slip-ons', bare: 'slip-ons' };
-function itemV2toV3(it: unknown): unknown {
+/* Version 3 made the posable figure a cutout puppet dressed in Open Peeps clothes (top, bottom, shoes) and posed by
+   bone angles. Version 4 dropped the posable figure: every character is an Open Peeps body in its own pose. A version 2
+   or 3 character on the figure (or from before bodies existed, with none) gets the body the puppet was cut from;
+   its clothes and pose go. Its colours stay, and recolour the body. */
+function itemV3toV4(it: unknown): unknown {
   if (!isObj(it) || it.kind !== 'char') return it;
-  const pick = (m: Record<string, string>, v: unknown) => (typeof v === 'string' && v in m ? m[v] : v);
-  return { ...it, top: pick(V3_TOP, it.top), bottom: pick(V3_BOTTOM, it.bottom), shoes: pick(V3_SHOES, it.shoes) };
+  const { top: _t, bottom: _b, shoes: _s, pose: _p, ...c } = it;
+  return c.body === undefined || c.body === 'rig' ? { ...c, body: DEFAULT_BODY } : c;
 }
-/** frames of a version 2 project in the version 3 shape */
-export function framesV2toV3(raw: unknown): unknown {
+/** frames of a version 2 or 3 project in the version 4 shape */
+export function framesV3toV4(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw;
-  return raw.map(f => (isObj(f) && Array.isArray(f.items) ? { ...f, items: f.items.map(itemV2toV3) } : f));
+  return raw.map(f => (isObj(f) && Array.isArray(f.items) ? { ...f, items: f.items.map(itemV3toV4) } : f));
 }
 
 /** One step per old version: MIGRATIONS[n] turns a version n file into version n + 1. */
 const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   1: p => ({ ...p, version: 2, frames: framesV1toV2(p.frames) }),
-  2: p => ({ ...p, version: 3, frames: framesV2toV3(p.frames) })
+  // version 3 changed only the figure's clothes, which version 4 drops
+  2: p => ({ ...p, version: 3 }),
+  3: p => ({ ...p, version: 4, frames: framesV3toV4(p.frames) })
 };
 function migrateProject(p: Obj & { version: number }): Obj {
   let cur: Obj = p;
@@ -176,7 +163,7 @@ export const toProject = (st: ProjectState): Project => ({
 /** The original vanilla version stored items as { type: 'char' } / { type: 'prop', kind: <prop id> }. Convert to the current file shape. */
 export function fromLegacyFrames(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw;
-  return framesV2toV3(framesV1toV2(raw.map(f => {
+  return framesV3toV4(framesV1toV2(raw.map(f => {
     if (!isObj(f) || !Array.isArray(f.items)) return f;
     return {
       ...f,

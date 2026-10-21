@@ -45,7 +45,7 @@ describe('the editor', () => {
     selectFirstChar();
     expect(st().sel).toBe(items()[0].id);
     const toolbar = screen.getByRole('toolbar', { name: 'Selected item' });
-    expect(within(toolbar).getAllByRole('button')).toHaveLength(5);
+    expect(within(toolbar).getAllByRole('button')).toHaveLength(4);
     click('Long curls');
     expect((selectedItem(st()) as Character).hair).toBe('long-curly');
     expect(screen.getByRole('button', { name: 'Long curls' }).getAttribute('aria-pressed')).toBe('true');
@@ -64,37 +64,13 @@ describe('the editor', () => {
     expect(screen.getByRole('status').textContent).toMatch(/Click a character/);
   });
 
-  it('pose mode shows four hand and foot handles, and a preset pose changes the arms', () => {
+  it('has no Pose button: every body comes in its own pose', () => {
     render(<App />);
     selectFirstChar();
-    click('Pose');
-    expect(document.querySelectorAll('#stage .jh')).toHaveLength(4);
-    expect(document.querySelectorAll('#stage .bh')).toHaveLength(4);
-    expect(screen.getByRole('tab', { name: 'Body' }).getAttribute('aria-selected')).toBe('true');
-    expect(document.querySelectorAll('[data-c]')).toHaveLength(0);          // corners wait while posing
-    click('Cheering');
-    expect(Math.round((selectedItem(st()) as Character).pose.aL[0])).toBe(-115);
-  });
-
-  it('dragging a hand handle moves the hand with one undo step, and a click makes none', () => {
-    render(<App />);
-    selectFirstChar(); click('Pose');
-    const before = (selectedItem(st()) as Character).pose.aR.slice(), steps = st().past.length;
-    const hand = document.querySelector('#stage .jh[data-limb="aR"]') as Element;
-    pointer(hand, 'pointerdown', 300, 300); pointer(window, 'pointerup', 300, 300);
-    expect(st().past).toHaveLength(steps);                                   // a click is not an edit
-    pointer(hand, 'pointerdown', 300, 300);
-    pointer(window, 'pointermove', 310, 300); pointer(window, 'pointermove', 320, 310); pointer(window, 'pointerup', 320, 310);
-    expect(st().past).toHaveLength(steps + 1);
-    expect((selectedItem(st()) as Character).pose.aR).not.toEqual(before);
-  });
-
-  it('clicking the elbow dot flips the bend', () => {
-    render(<App />);
-    selectFirstChar(); click('Pose');
-    const bend = (selectedItem(st()) as Character).pose.aL[2];
-    pointer(document.querySelector('#stage .bh[data-limb="aL"]') as Element, 'pointerdown');
-    expect((selectedItem(st()) as Character).pose.aL[2]).toBe(-bend);
+    expect(screen.queryByRole('button', { name: 'Pose' })).toBeNull();
+    expect(document.querySelectorAll('[data-c]')).toHaveLength(4);
+    click('Body', 'tab');
+    expect(document.querySelectorAll('button[data-sec="body"]').length).toBeGreaterThan(20);
   });
 
   it('moving drags the item and records one undo step only after the pointer moves', () => {
@@ -202,12 +178,12 @@ describe('the picker', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search parts' }), { target: { value: 'zzzz' } });
     expect(screen.getByText(/Nothing matches/)).toBeTruthy();
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search parts' }), { target: { value: 'sit' } });
-    expect(screen.getAllByRole('button').some(b => b.getAttribute('data-sec') === 'pose')).toBe(true);
+    expect(screen.getAllByRole('button').some(b => b.getAttribute('data-sec') === 'bodySit')).toBe(true);
   });
 
   it('applies colours, scenes and backgrounds', () => {
     render(<App />);
-    selectFirstChar(); click('Tops', 'tab');
+    selectFirstChar(); click('Clothes', 'tab');
     fireEvent.click(screen.getAllByRole('button', { name: 'Colour #ff9a4d' })[0]);
     expect((selectedItem(st()) as Character).topC).toBe('#ff9a4d');
     click('Scene', 'tab');

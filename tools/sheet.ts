@@ -2,9 +2,8 @@
 // usage: tsx tools/sheet.ts <out.png>
 import fs from 'node:fs';
 import { Resvg } from '@resvg/resvg-js';
-import { BODIES, BOTTOMS, FACE, FACIAL, GLASSES, HAIR, PROPS, SHOES, TOPS } from '../src/parts';
+import { BODIES, FACE, FACIAL, GLASSES, HAIR, PROPS } from '../src/parts';
 import { loadBodyArt } from '../src/parts/bodies';
-import { POSES, poseFrom } from '../src/rig/poses';
 import { charSVG, newCharacter, propSVG } from '../src/rig/renderCharacter';
 import type { Character, PartInfo } from '../src/types';
 
@@ -18,15 +17,11 @@ const place = (svg: string, label: string) => {
 };
 await loadBodyArt();
 // every Open Peeps body, with a darker skin and coloured clothes so the colour regions show
-for (const b of BODIES.filter(x => x.kind !== 'rig')) place(charSVG(newCharacter({ body: b.id, skin: '#c68a62', topC: '#4aa8ff', botC: '#ffe08a', shoeC: '#ff9a4d', hair: 'long-curly' })), b.id);
-for (const p of POSES) { const c = newCharacter({ id: 'pose-' + p.id }); place(charSVG({ ...c, pose: poseFrom(c, p.t) }), p.id); }
+for (const b of BODIES) place(charSVG(newCharacter({ body: b.id, skin: '#c68a62', topC: '#4aa8ff', botC: '#ffe08a', shoeC: '#ff9a4d', hair: 'long-curly' })), b.id);
 for (const h of HAIR) place(charSVG(newCharacter({ hair: h.id, hairC: '#c97b4a', skin: '#e9b996' })), 'hair ' + h.id);
-for (const t of TOPS) place(charSVG(newCharacter({ top: t.id, topC: '#ffe08a' })), 'top ' + t.id);
-for (const t of BOTTOMS) place(charSVG(newCharacter({ bottom: t.id, botC: '#141414' })), 'bottom ' + t.id);
-for (const t of SHOES) place(charSVG(newCharacter({ shoes: t.id, shoeC: '#4aa8ff', bottom: 'jeans' })), 'shoes ' + t.id);
 for (const t of FACE) place(charSVG(newCharacter({ face: t.id })), 'face ' + t.id);
 const extras: Array<[keyof Character, readonly PartInfo[]]> = [['glasses', GLASSES], ['facial', FACIAL]];
-for (const [k, list] of extras) for (const t of list) place(charSVG(newCharacter({ [k]: t.id, top: 'tee' })), k + ' ' + t.id);
+for (const [k, list] of extras) for (const t of list) place(charSVG(newCharacter({ [k]: t.id })), k + ' ' + t.id);
 for (const p of PROPS) place(propSVG({ prop: p.id, text: p.text }), 'prop ' + p.id);
 place('<g transform="scale(-1 1)">' + charSVG(newCharacter({ flip: false })) + '</g>', 'flipped');
 

@@ -2,9 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { MAX_HISTORY } from './history';
 import { NEW_BODY, charTarget, currentFrame, resetEditorStore, selectedIds, selectedItem, selectedItems, useEditor } from './store';
 import { BODIES } from '../parts';
-import { fk } from '../rig/ik';
-import { limbsOf } from '../rig/geometry';
-import { rig } from '../rig/poses';
 import type { Character } from '../types';
 
 const st = () => useEditor.getState();
@@ -98,18 +95,6 @@ describe('dressing and posing', () => {
     st().applyColor('topC', '#ff9a4d');
     expect(chars()[0].topC).toBe('#ff9a4d'); expect(st().sel).toBe(chars()[0].id);
   });
-  it('applies a preset pose', () => {
-    st().select(firstChar().id); st().applyPose('cheer');
-    expect(Math.round(firstChar().pose.aL[0])).toBe(-115);
-  });
-  it('flipBend keeps the hand where it was and flips the sign', () => {
-    const c = firstChar(), before = rig(c).aR[2];
-    st().flipBend(c.id, 'aR');
-    const n = firstChar(), L = limbsOf(n).aR, after = fk(L.o, L.l1, L.l2, n.pose.aR[0], n.pose.aR[1])[2];
-    expect(n.pose.aR[2]).toBe(-c.pose.aR[2]);
-    expect(Math.hypot(after[0] - before[0], after[1] - before[1])).toBeLessThan(0.01);
-    expect(st().past).toHaveLength(1);
-  });
   it('shuffle adds a character on an empty board, and asks for a click when several exist', () => {
     st().shuffle(); expect(st().toast?.msg).toMatch(/Click a character first/);
     chars().forEach(c => { st().select(c.id); st().act('del'); });
@@ -125,22 +110,19 @@ describe('dressing and posing', () => {
 
 describe('bodies', () => {
   const kindOf = (id: string) => BODIES.find(b => b.id === id)?.kind;
-  it('the seed has a posable figure and an Open Peeps body; new characters get an Open Peeps body', () => {
-    expect(chars().map(c => kindOf(c.body))).toEqual(['rig', 'stand']);
+  it('the seed has two standing bodies; new characters get one too', () => {
+    expect(chars().map(c => kindOf(c.body))).toEqual(['stand', 'stand']);
     st().addChar();
     expect(chars()[2].body).toBe(NEW_BODY); expect(kindOf(NEW_BODY)).toBe('stand');
   });
-  it('picking an Open Peeps body turns pose mode off; a preset pose switches back to the posable figure', () => {
-    st().select(firstChar().id); st().act('pose');
-    expect(st().pose).toBe(true);
-    st().applyPart('body', 'sit-bike');
-    expect(firstChar().body).toBe('sit-bike'); expect(st().pose).toBe(false);
-    st().applyPose('wave');
-    expect(firstChar().body).toBe('rig');
-  });
-  it('shuffle keeps the kind of body: the figure stays a figure, a waist-up body stays waist up', () => {
+  it('picking a body is one undo step', () => {
     st().select(firstChar().id);
-    for (let i = 0; i < 5; i++) { st().shuffle(); expect(firstChar().body).toBe('rig'); }
+    st().applyPart('body', 'sit-bike');
+    expect(firstChar().body).toBe('sit-bike'); expect(st().past).toHaveLength(1);
+  });
+  it('shuffle keeps the kind of body: standing stays standing, waist up stays waist up', () => {
+    st().select(firstChar().id);
+    for (let i = 0; i < 5; i++) { st().shuffle(); expect(kindOf(firstChar().body)).toBe('stand'); }
     st().applyPart('body', 'bust-hoodie');
     for (let i = 0; i < 5; i++) { st().shuffle(); expect(kindOf(firstChar().body)).toBe('bust'); }
   });
@@ -159,17 +141,10 @@ describe('item actions', () => {
     st().act('del');
     expect(currentFrame(st()).items.some(i => i.id === a.id)).toBe(false); expect(st().sel).toBeNull();
   });
-  it('duplicating a character copies it deeply', () => {
+  it('duplicating a character copies its look into a new item', () => {
     st().select(firstChar().id); st().act('dup');
-    const copy = chars().at(-1) as Character;
-    copy.pose.aR[0] += 1;                                        // would corrupt the original if it were shared
-    expect(chars()[0].pose.aR[0]).not.toBe(copy.pose.aR[0]);
-  });
-  it('the pose toggle opens the Body tab (where the preset poses are) and clears search without making history', () => {
-    st().select(firstChar().id); st().setQuery('x');
-    st().act('pose');
-    expect(st().pose).toBe(true); expect(st().tab).toBe('body'); expect(st().q).toBe(''); expect(st().past).toHaveLength(0);
-    st().act('pose'); expect(st().pose).toBe(false);
+    const copy = chars().at(-1) as Character, { id: _a, x: _ax, ...look } = chars()[0], { id: _b, x: _bx, ...copyLook } = copy;
+    expect(copy).not.toBe(chars()[0]); expect(copyLook).toEqual(look);
   });
   it('nudge, rotate and reset rotation', () => {
     const a = firstChar(); st().select(a.id);
@@ -286,10 +261,6 @@ describe('multi-select', () => {
     const [a, b] = currentFrame(st()).items as Character[];
     expect([a.hair, b.hair]).toEqual(['curly', 'curly']); expect(st().past).toHaveLength(steps + 1);
     st().applyColor('topC', '#ff9a4d'); expect([(currentFrame(st()).items[0] as Character).topC, (currentFrame(st()).items[1] as Character).topC]).toEqual(['#ff9a4d', '#ff9a4d']);
-  });
-  it('pose mode works on the primary character only, and the toggle needs a selection', () => {
-    st().act('pose'); expect(st().pose).toBe(false);
-    st().selectMany([ids()[A], ids()[B]]); st().act('pose'); expect(st().pose).toBe(true);
   });
   it('changing frame, opening a project and undoing past a deleted item all clean up the selection', () => {
     st().selectMany([ids()[A], ids()[B]]); st().addFrame(); expect(st().extra).toEqual([]); expect(st().sel).toBeNull();
