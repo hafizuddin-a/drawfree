@@ -5,6 +5,8 @@ dist
 *.png
 # the cutout puppet beside real Open Peeps poses (tools/cutout.ts compare), for judging by eye
 !docs/cutout/*.png
+# the drawn figure's style sheet (tools/style-sheet.ts)
+!docs/style/*.png
 .wrangler
 .DS_Store
 art-sheet.svg
