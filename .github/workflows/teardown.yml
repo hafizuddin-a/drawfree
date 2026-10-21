@@ -1,0 +1,22 @@
+name: Teardown
+
+# The project was abandoned (Oct 2026). This deletes both Cloudflare Workers, production and staging, so the site goes
+# offline. Run it once by hand (Actions > Teardown > Run workflow), then delete the CLOUDFLARE_* secrets.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  teardown:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Delete the production Worker
+        run: npx -y wrangler@4.151.3 delete drawfree --force
+      - name: Delete the staging Worker
+        run: npx -y wrangler@4.151.3 delete drawfree-staging --force
