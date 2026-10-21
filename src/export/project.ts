@@ -7,12 +7,12 @@ import { newCharacter } from '../rig/renderCharacter';
 import { DEFAULT_BG } from '../scenes/backgrounds';
 import { hasScene } from '../scenes/scenes';
 
-export const PROJECT_VERSION = 1;
+export const PROJECT_VERSION = 2;
 const ASPECTS: readonly Aspect[] = ['16:9', '4:3', '1:1', '9:16'];
 export const DEFAULT_NAME = 'Untitled storyboard';
 const MAX_FRAMES = 200, MAX_ITEMS = 200;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const COLOR_SLOTS: readonly ColorSlot[] = ['skin', 'hairC', 'topC', 'botC', 'shoeC', 'hatC', 'neckC'];
+const COLOR_SLOTS: readonly ColorSlot[] = ['skin', 'hairC', 'topC', 'botC', 'shoeC', 'hatC'];
 
 /** counts of values that had to be repaired or dropped while cleaning */
 export interface Fixes { fixed: number; dropped: number }
@@ -91,8 +91,36 @@ export function cleanFrames(raw: unknown): Fixes & { frames: Frame[] } {
 }
 
 /* ---------- versions ---------- */
-/** One step per old version: MIGRATIONS[n] turns a version n file into version n + 1. Empty until the format changes. */
-const MIGRATIONS: Record<number, (p: Obj) => Obj> = {};
+/* Version 2 (milestone 6) replaced the hand-drawn heads with Open Peeps parts, folded hats into the hairstyles and
+   dropped neckwear (Open Peeps has none; cleanItem drops the old neck fields as unknown). */
+const V2_HAIR: Record<string, string> = { none: 'no-hair-1', crop: 'short-1', quiff: 'pomp', bun: 'bun-2', curly: 'afro', long: 'long', pony: 'cornrows' };
+const V2_HAT: Record<string, string> = { beanie: 'hat-beanie', cap: 'hat-hip', bucket: 'hat-hip' };
+const V2_FACE: Record<string, string> = { smile: 'smile', neutral: 'blank', grin: 'smile-big', wink: 'cute', surprised: 'awe', sleepy: 'tired' };
+const V2_GLASSES: Record<string, string> = { none: 'none', round: 'glasses', square: 'glasses-3', shades: 'sunglasses' };
+const V2_FACIAL: Record<string, string> = { none: 'none', stache: 'moustache-1', beard: 'full', goatee: 'goatee-1' };
+const dark = (c: unknown): boolean => isHex(c) && parseInt(c.slice(1, 3), 16) + parseInt(c.slice(3, 5), 16) + parseInt(c.slice(5, 7), 16) < 300;
+
+/** A version 1 character in the version 2 shape. Unknown ids pass through for cleanItem to repair. */
+function itemV1toV2(it: unknown): unknown {
+  if (!isObj(it) || it.kind !== 'char') return it;
+  const { hat, ...c } = it;
+  const pick = (m: Record<string, string>, v: unknown) => (typeof v === 'string' && v in m ? m[v] : v);
+  const out: Obj = { ...c, hair: pick(V2_HAIR, c.hair), face: pick(V2_FACE, c.face), glasses: pick(V2_GLASSES, c.glasses), facial: pick(V2_FACIAL, c.facial) };
+  if (typeof hat === 'string' && hat in V2_HAT) out.hair = V2_HAT[hat];
+  // dark hair is ink now; the hair colour only tints light styles, where near-black would hide the strands
+  if (dark(c.hairC)) out.hairC = '#e0b95a';
+  return out;
+}
+/** frames of a version 1 project (or the vanilla shape, after fromLegacyFrames) in the version 2 shape */
+export function framesV1toV2(raw: unknown): unknown {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map(f => (isObj(f) && Array.isArray(f.items) ? { ...f, items: f.items.map(itemV1toV2) } : f));
+}
+
+/** One step per old version: MIGRATIONS[n] turns a version n file into version n + 1. */
+const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
+  1: p => ({ ...p, version: 2, frames: framesV1toV2(p.frames) })
+};
 function migrateProject(p: Obj & { version: number }): Obj {
   let cur: Obj = p;
   while ((cur.version as number) < PROJECT_VERSION) {
@@ -129,10 +157,10 @@ export const toProject = (st: ProjectState): Project => ({
   version: PROJECT_VERSION, name: st.name || DEFAULT_NAME, frames: st.frames, aspect: cleanAspect(st.aspect), updatedAt: new Date().toISOString()
 });
 
-/** The original vanilla version stored items as { type: 'char' } / { type: 'prop', kind: <prop id> }. Convert to the file shape. */
+/** The original vanilla version stored items as { type: 'char' } / { type: 'prop', kind: <prop id> }. Convert to the current file shape. */
 export function fromLegacyFrames(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw;
-  return raw.map(f => {
+  return framesV1toV2(raw.map(f => {
     if (!isObj(f) || !Array.isArray(f.items)) return f;
     return {
       ...f,
@@ -143,7 +171,7 @@ export function fromLegacyFrames(raw: unknown): unknown {
         return it;
       })
     };
-  });
+  }));
 }
 
 /* ---------- file names ---------- */

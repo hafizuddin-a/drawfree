@@ -3,6 +3,8 @@ import { boot } from '../boot';
 import { KEY, OLD_KEY, loadSaved, startAutosave } from './persist';
 import { currentFrame, resetEditorStore, useEditor } from './store';
 import { newCharacter } from '../rig/renderCharacter';
+import { HAIR } from '../parts';
+import { PROJECT_VERSION } from '../export/project';
 
 beforeEach(() => { resetEditorStore(); localStorage.clear(); vi.useFakeTimers(); });
 afterEach(() => vi.useRealTimers());
@@ -16,7 +18,7 @@ describe('autosave', () => {
     useEditor.getState().setNote('ab'); vi.advanceTimersByTime(300);
     expect(stored()).toBeNull();                                  // still waiting
     vi.advanceTimersByTime(250);
-    expect(stored()).toMatchObject({ version: 1, name: 'Untitled storyboard', fi: 0 });
+    expect(stored()).toMatchObject({ version: PROJECT_VERSION, name: 'Untitled storyboard', fi: 0 });
     expect(JSON.stringify(stored())).toContain('"note":"ab"');
     a.stop();
   });
@@ -70,7 +72,7 @@ describe('loading', () => {
     const p = { version: 1, name: 'x', aspect: '16:9', fi: 99, frames: [{ id: 'f', items: [{ ...newCharacter({ id: 'c' }), hair: 'ghost' }] }] };
     localStorage.setItem(KEY, JSON.stringify(p));
     const s = loadSaved();
-    expect(s?.frames[0].items[0]).toMatchObject({ hair: 'none' }); expect(s?.fi).toBe(0);
+    expect(s?.frames[0].items[0]).toMatchObject({ hair: HAIR[0].id }); expect(s?.fi).toBe(0);
     for (const junk of ['nope', '[]', '{"version":1,"frames":[]}', '{"version":9,"frames":[{}]}', '{"frames":"x"}', 'null']) {
       localStorage.setItem(KEY, junk); expect(loadSaved(), junk).toBeNull();
     }

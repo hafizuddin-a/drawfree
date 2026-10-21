@@ -6,6 +6,8 @@ import { App } from './App';
 import * as frameModule from './export/frame';
 import { resetEditorStore, currentFrame, selectedIds, selectedItem, useEditor } from './state/store';
 import type { Character, Item } from './types';
+import { HAIR } from './parts';
+import { PROJECT_VERSION } from './export/project';
 
 const st = () => useEditor.getState();
 const errors: string[] = [];
@@ -34,7 +36,7 @@ describe('the editor', () => {
   it('shows the seed scene and the picker', () => {
     render(<App />);
     expect(document.querySelectorAll('#stage .item')).toHaveLength(4);
-    expect(screen.getAllByRole('button', { pressed: false }).filter(b => b.getAttribute('data-sec') === 'hair')).toHaveLength(7);
+    expect(screen.getAllByRole('button', { pressed: false }).filter(b => b.getAttribute('data-sec') === 'hair')).toHaveLength(HAIR.length);
     expect(screen.getByText('Click a character on the board to dress it.')).toBeTruthy();
   });
 
@@ -44,9 +46,9 @@ describe('the editor', () => {
     expect(st().sel).toBe(items()[0].id);
     const toolbar = screen.getByRole('toolbar', { name: 'Selected item' });
     expect(within(toolbar).getAllByRole('button')).toHaveLength(5);
-    click('Curls');
-    expect((selectedItem(st()) as Character).hair).toBe('curly');
-    expect(screen.getByRole('button', { name: 'Curls' }).getAttribute('aria-pressed')).toBe('true');
+    click('Long curls');
+    expect((selectedItem(st()) as Character).hair).toBe('long-curly');
+    expect(screen.getByRole('button', { name: 'Long curls' }).getAttribute('aria-pressed')).toBe('true');
     click('Flip');
     expect(selectedItem(st())?.flip).toBe(true);
     click('Undo'); expect(selectedItem(st())?.flip).toBe(false);
@@ -58,7 +60,7 @@ describe('the editor', () => {
 
   it('asks for a selection when several characters are on the board', () => {
     render(<App />);
-    click('Curls');
+    click('Long curls');
     expect(screen.getByRole('status').textContent).toMatch(/Click a character/);
   });
 
@@ -195,7 +197,7 @@ describe('the picker', () => {
 
   it('searches across every section', () => {
     render(<App />);
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search parts' }), { target: { value: 'beard' } });
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search parts' }), { target: { value: 'eyepatch' } });
     expect(document.querySelectorAll('button[data-sec]')).toHaveLength(1);
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search parts' }), { target: { value: 'zzzz' } });
     expect(screen.getByText(/Nothing matches/)).toBeTruthy();
@@ -318,7 +320,7 @@ describe('projects: save and open', () => {
     await waitFor(() => expect(downloads).toHaveLength(1));
     expect(downloads[0].name).toBe('my-film-act-1.drawfree.json');
     const text = await readBlob(downloads[0].blob as Blob), file = JSON.parse(text) as { version: number; name: string; frames: Array<{ items: Array<Record<string, unknown>> }> };
-    expect(file).toMatchObject({ version: 1, name: 'My Film: Act 1' });
+    expect(file).toMatchObject({ version: PROJECT_VERSION, name: 'My Film: Act 1' });
     expect(file.frames[0].items[0].kind).toBe('char'); expect(text).not.toContain('"type"');
 
     const before = JSON.stringify(st().frames);

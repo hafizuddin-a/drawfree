@@ -2,7 +2,7 @@
    so React.memo can skip untouched characters and undo snapshots are plain references. */
 import { create } from 'zustand';
 import type { Aspect, Character, ColorSlot, Frame, Item, LimbId, LimbPose, PartSlot, Placement } from '../types';
-import { CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, HATS, NECK, BOTTOMS, SHOES, SKIN, TOPS, PROPS } from '../parts';
+import { CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, BOTTOMS, SHOES, SKIN, TOPS, PROPS } from '../parts';
 import { LIMBS } from '../rig/geometry';
 import { ik } from '../rig/ik';
 import { presetPose, rig } from '../rig/poses';
@@ -214,9 +214,8 @@ export const useEditor = create<EditorState>()((set, get) => {
       } else h.snap();
       const look: Partial<Character> = {
         hair: pickId(HAIR), hairC: pick(HAIRC), face: pickId(FACE), skin: pick(SKIN), top: pickId(TOPS), topC: pick(CLOTH),
-        bottom: pickId(BOTTOMS), botC: pick(CLOTH), shoes: pickId(SHOES), shoeC: pick(CLOTH), hatC: pick(CLOTH), neckC: pick(CLOTH),
-        glasses: Math.random() < 0.4 ? pickId(GLASSES) : 'none', facial: Math.random() < 0.3 ? pickId(FACIAL) : 'none',
-        hat: Math.random() < 0.3 ? pickId(HATS) : 'none', neck: Math.random() < 0.3 ? pickId(NECK) : 'none'
+        bottom: pickId(BOTTOMS), botC: pick(CLOTH), shoes: pickId(SHOES), shoeC: pick(CLOTH), hatC: pick(CLOTH),
+        glasses: Math.random() < 0.4 ? pickId(GLASSES) : 'none', facial: Math.random() < 0.3 ? pickId(FACIAL) : 'none'
       };
       const id = c.id;
       set(s => ({ frames: editItem(s, id, it => mapChar(it, ch => ({ ...ch, ...look }))), sel: id, extra: [] }));

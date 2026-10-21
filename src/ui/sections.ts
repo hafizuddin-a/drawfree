@@ -1,16 +1,16 @@
 /* Picker config: the UI is generated from these lists. Add a part to its list and it shows up here, in search, and in thumbnails. */
 import type { ColorSlot, PartInfo, PartSlot } from '../types';
-import { BOTTOMS, CLOTH, FACE, FACIAL, GLASSES, HAIR, HAIRC, HATS, NECK, PROPS, SHOES, SKIN, TOPS } from '../parts';
+import { BOTTOMS, CLOTH, FACE, FACIAL, GLASSES, HAIR, HAIRC, PROPS, SHOES, SKIN, TOPS } from '../parts';
 import { POSES } from '../rig/poses';
 import { SCENES } from '../scenes/scenes';
 import { BGC } from '../scenes/backgrounds';
 import type { TabId } from '../state/store';
 
-const HEADV = '-58 -290 116 116', FACEV = '-48 -262 96 96';
+const HEADV = '-42 -266 88 88', FACEV = '-28 -246 60 60';
 
 export type SectionId =
   | 'hair' | 'hairC' | 'face' | 'skin' | 'top' | 'topC' | 'bottom' | 'botC' | 'shoes' | 'shoeC'
-  | 'glasses' | 'facial' | 'hat' | 'hatC' | 'neck' | 'neckC' | 'pose' | 'props' | 'scene' | 'bgC';
+  | 'glasses' | 'facial' | 'hatC' | 'pose' | 'props' | 'scene' | 'bgC';
 
 interface ListBase { id: SectionId; title: string; list: readonly PartInfo[]; view: string }
 export type ListSection =
@@ -25,7 +25,7 @@ export type Section = ListSection | ColorSection;
 
 export const SECS: Record<SectionId, Section> = {
   hair: { id: 'hair', kind: 'part', title: 'Hairstyles', slot: 'hair', list: HAIR, view: HEADV },
-  hairC: { id: 'hairC', kind: 'color', title: 'Hair colour', slot: 'hairC', colors: HAIRC },
+  hairC: { id: 'hairC', kind: 'color', title: 'Hair colour (light styles)', slot: 'hairC', colors: HAIRC },
   face: { id: 'face', kind: 'part', title: 'Expressions', slot: 'face', list: FACE, view: FACEV },
   skin: { id: 'skin', kind: 'color', title: 'Skin tone', slot: 'skin', colors: SKIN },
   top: { id: 'top', kind: 'part', title: 'Tops', slot: 'top', list: TOPS, view: '-72 -190 144 150' },
@@ -36,10 +36,7 @@ export const SECS: Record<SectionId, Section> = {
   shoeC: { id: 'shoeC', kind: 'color', title: 'Shoe colour', slot: 'shoeC', colors: CLOTH },
   glasses: { id: 'glasses', kind: 'part', title: 'Glasses', slot: 'glasses', list: GLASSES, view: FACEV },
   facial: { id: 'facial', kind: 'part', title: 'Facial hair', slot: 'facial', list: FACIAL, view: FACEV },
-  hat: { id: 'hat', kind: 'part', title: 'Hats', slot: 'hat', list: HATS, view: HEADV },
-  hatC: { id: 'hatC', kind: 'color', title: 'Hat colour', slot: 'hatC', colors: CLOTH },
-  neck: { id: 'neck', kind: 'part', title: 'Neckwear', slot: 'neck', list: NECK, view: '-50 -215 100 100' },
-  neckC: { id: 'neckC', kind: 'color', title: 'Neckwear colour', slot: 'neckC', colors: CLOTH },
+  hatC: { id: 'hatC', kind: 'color', title: 'Hat and headband colour', slot: 'hatC', colors: CLOTH },
   pose: { id: 'pose', kind: 'pose', title: 'Poses', list: POSES, view: '-130 -300 270 500' },
   props: { id: 'props', kind: 'props', title: 'Props', list: PROPS, view: '-125 -200 250 235' },
   scene: { id: 'scene', kind: 'scene', title: 'Scenes', list: SCENES, view: '0 0 960 540' },
@@ -47,12 +44,12 @@ export const SECS: Record<SectionId, Section> = {
 };
 
 export const TABS: ReadonlyArray<{ id: TabId; label: string; secs: readonly SectionId[] }> = [
-  { id: 'hair', label: 'Hair', secs: ['hair', 'hairC'] },
+  { id: 'hair', label: 'Hair', secs: ['hair', 'hairC', 'hatC'] },
   { id: 'face', label: 'Face', secs: ['face', 'skin'] },
   { id: 'top', label: 'Tops', secs: ['top', 'topC'] },
   { id: 'bottom', label: 'Bottoms', secs: ['bottom', 'botC'] },
   { id: 'shoes', label: 'Shoes', secs: ['shoes', 'shoeC'] },
-  { id: 'extras', label: 'Extras', secs: ['glasses', 'facial', 'hat', 'hatC', 'neck', 'neckC'] },
+  { id: 'extras', label: 'Extras', secs: ['glasses', 'facial'] },
   { id: 'pose', label: 'Pose', secs: ['pose'] },
   { id: 'props', label: 'Props', secs: ['props'] },
   { id: 'scene', label: 'Scene', secs: ['scene', 'bgC'] }

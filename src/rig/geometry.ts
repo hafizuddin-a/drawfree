@@ -1,7 +1,6 @@
 /* Rig anchors and geometry. Local space: pelvis at (0,0), figure faces +x, y grows downward.
    Head centre (0,-212), shoulders (+-33,-150), hips (+-19,-4). Anything new a part needs to anchor to goes here. */
 import type { LimbId, Vec } from '../types';
-import { ln } from '../parts/draw';
 
 export const RAD = Math.PI / 180;
 export const G = {
@@ -15,9 +14,6 @@ export const LIMBS: Record<LimbId, readonly [Vec, number, number]> = {
 };
 export const LIMB_IDS: readonly LimbId[] = ['aL', 'aR', 'lL', 'lR'];
 
-/* head outline and ear: hair, hats and glasses are drawn against these */
-export const HEAD_D = 'M0,-247 C17,-247 29,-234 29,-214 C29,-208 31,-205 33,-203 C31,-201 29,-200 29,-196 C28,-180 16,-174 0,-174 C-16,-174 -29,-186 -29,-208 C-29,-232 -17,-247 0,-247 Z';
-export const EAR = ln('M-27,-216 C-37,-217 -37,-199 -27,-200');
 /** torso outline for tops; `h` is the hem y */
 export const torsoPath = (h: number): string =>
   `M-33,-167 C-20,-171 20,-171 33,-167 C43,-164 43,-150 41,-138 L32,-60 L33,${h} L-33,${h} L-32,-60 L-41,-138 C-43,-150 -43,-164 -33,-167 Z`;

@@ -8,8 +8,8 @@ export type Bend = 1 | -1;
 export type LimbPose = [number, number, Bend];
 export type Pose = Record<LimbId, LimbPose>;
 
-export type PartSlot = 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'glasses' | 'facial' | 'hat' | 'neck';
-export type ColorSlot = 'skin' | 'hairC' | 'topC' | 'botC' | 'shoeC' | 'hatC' | 'neckC';
+export type PartSlot = 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'glasses' | 'facial';
+export type ColorSlot = 'skin' | 'hairC' | 'topC' | 'botC' | 'shoeC' | 'hatC';
 
 export interface Placement {
   x: number;
@@ -48,7 +48,7 @@ export interface Frame {
 export type Aspect = '16:9' | '4:3' | '1:1' | '9:16';
 
 export interface Project {
-  version: 1;
+  version: 2;
   name: string;
   frames: Frame[];
   aspect: Aspect;
@@ -62,14 +62,10 @@ export interface PartInfo {
   name: string;
   tags: string[];
 }
-/** Hair has two layers: back sits behind the head, front on top. `c` is the hair colour. */
-export interface HairPart extends PartInfo { back: (c: string) => string; front: (c: string) => string }
-export interface FacePart extends PartInfo { draw: () => string }
-export interface GlassesPart extends PartInfo { draw: () => string }
-/** Facial hair: `pre` is drawn before the face, `post` after it. */
-export interface FacialPart extends PartInfo { pre: (c: string) => string; post: (c: string) => string }
-export interface HatPart extends PartInfo { draw: (c: string) => string }
-export interface NeckPart extends PartInfo { draw: (c: string) => string }
+/** Open Peeps art (tools/import-peeps.ts): filled layers whose kind picks the colour. See parts/peeps/art.ts. */
+export interface PeepArt { id: string; name: string; l: ReadonlyArray<readonly [kind: string, d: string]> }
+/** Hairstyles (which include the head), expressions, facial hair and glasses are all Open Peeps parts. */
+export interface PeepPart extends PartInfo { art: PeepArt }
 /** `sleeve` is the sleeve length along the arm (0 = sleeveless), `sw` the sleeve width. */
 export interface TopPart extends PartInfo { sleeve: number; sw: number; draw: (c: string, skin: string) => string }
 /** `leg` is how far down the leg the trousers reach (0 = skirt), `lw` their width. */
