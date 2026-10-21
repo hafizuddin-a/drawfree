@@ -85,7 +85,7 @@ describe('project files', () => {
     const r = parseProject(JSON.stringify(file));
     const [a, b] = r.state.frames[0].items as Character[];
     expect(r.fixed).toBe(0);
-    expect(a).toMatchObject({ hair: 'short-1', face: 'smile-big', glasses: 'glasses', facial: 'full', hairC: '#e0b95a' });
+    expect(a).toMatchObject({ hair: 'short-1', face: 'smile-big', glasses: 'glasses', facial: 'full', hairC: '#141414' });
     expect(b).toMatchObject({ hair: 'hat-beanie', face: 'tired', glasses: 'sunglasses', facial: 'moustache-1', hairC: '#e0b95a' });
     for (const gone of ['hat', 'neck', 'neckC']) expect(gone in a, gone).toBe(false);
     expect(toProject(r.state).version).toBe(2);

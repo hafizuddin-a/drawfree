@@ -43,7 +43,7 @@ export const SECS: Record<SectionId, Section> = {
   bodySit: { id: 'bodySit', kind: 'part', title: 'Sitting', slot: 'body', list: SITTING_BODIES, view: '', viewOf: bodyView },
   bodyBust: { id: 'bodyBust', kind: 'part', title: 'Waist up', slot: 'body', list: BUST_BODIES, view: '', viewOf: bodyView },
   hair: { id: 'hair', kind: 'part', title: 'Hairstyles', slot: 'hair', list: HAIR, view: HEADV },
-  hairC: { id: 'hairC', kind: 'color', title: 'Hair colour (light styles)', slot: 'hairC', colors: HAIRC },
+  hairC: { id: 'hairC', kind: 'color', title: 'Hair colour', slot: 'hairC', colors: HAIRC },
   face: { id: 'face', kind: 'part', title: 'Expressions', slot: 'face', list: FACE, view: HEADV },
   skin: { id: 'skin', kind: 'color', title: 'Skin tone', slot: 'skin', colors: SKIN },
   top: { id: 'top', kind: 'part', title: 'Tops', slot: 'top', list: TOPS, view: TOPV },

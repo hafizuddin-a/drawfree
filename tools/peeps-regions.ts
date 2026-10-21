@@ -92,6 +92,25 @@ function dilate(mask: Uint8Array, w: number, h: number, n: number): Uint8Array {
   return cur;
 }
 
+/** The solid parts of the ink (hair masses, beards, a black hat), without its thin strokes: erode the ink by `erode`
+    units so strokes vanish, then grow what is left by `regrow` units. With regrow < erode a ring of ink stays round
+    each mass, which becomes its outline once the mass is filled with a colour on top of the ink. */
+export function thickInk(width: number, height: number, inks: string[], erode: number, regrow: number): Raster {
+  const w = Math.ceil((width + 2 * M) * R), h = Math.ceil((height + 2 * M) * R);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${-M} ${-M} ${width + 2 * M} ${height + 2 * M}">` +
+    inks.map(d => `<path d="${d}" fill="#000000" fill-rule="evenodd"/>`).join('') + '</svg>';
+  const px = new Resvg(svg, { shapeRendering: 0 }).render().pixels;
+  const ink = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) ink[i] = px[i * 4 + 3] > 128 ? 1 : 0;
+  const outside = dilate(ink.map(v => 1 - v), w, h, Math.round(erode * R));
+  const core = outside.map(v => 1 - v);
+  const mask = dilate(core, w, h, Math.round(regrow * R));
+  for (let i = 0; i < w * h; i++) mask[i] &= ink[i];
+  let area = 0;
+  for (let i = 0; i < w * h; i++) area += mask[i];
+  return { w, h, regions: [{ id: 0, area: area / (R * R), mask }], label: new Int32Array(0), pad: 0 };
+}
+
 /** Ramer-Douglas-Peucker on a closed loop: split at the point farthest from the start, simplify both halves. */
 function simplify(pts: Pt[], tol: number): Pt[] {
   if (pts.length < 4) return pts;

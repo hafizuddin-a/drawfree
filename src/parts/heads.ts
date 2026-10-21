@@ -20,7 +20,7 @@ function list(art: readonly PeepArt[], meta: readonly Meta[], what: string): Pee
   });
 }
 
-/* Light hair is drawn in the hair colour; dark hair is ink. Hats and headbands use the hat colour. */
+/* Every hairstyle and beard takes the hair colour (light hair from its white areas, dark hair from its solid ink, with an ink outline kept). Hats and headbands use the hat colour. */
 export const HAIR: PeepPart[] = list(PEEP_HEADS, [
   ['short-1', 'Short side part', 'short neat side part dark'],
   ['short-2', 'Short slick', 'short slick neat dark'],

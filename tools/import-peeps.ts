@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
-import { type Raster, innerPoint, regionAt, reviewSVG, segment, trace } from './peeps-regions';
+import { type Raster, innerPoint, regionAt, reviewSVG, segment, thickInk, trace } from './peeps-regions';
 
 const ROOT = 'assets/open-peeps/Flat Assets';
 const ATOMS = path.join(ROOT, 'Separate Atoms');
@@ -246,6 +246,22 @@ const loopsToSegs = (loops: Pt[][]): Seg[] => loops.flatMap(l => [{ c: 'M', p: [
 
 /** Extra colour layers for one atom: the painted regions of REGIONS, and for faces every hole the ink encloses
     (eye whites, teeth), which would otherwise show the skin through. */
+/* Dark hair is solid ink in the pack, the same layer as the outlines. Its thick parts become a hair-coloured layer over
+   the ink (with a thin ink ring left as the outline), so the hair colour reaches every hairstyle and beard. On a few
+   heads the solid ink is a garment or a hat, which takes the hat colour instead. */
+const THICK_INK: Record<string, 'h' | 'a'> = { head: 'h', 'facial-hair': 'h' };
+const THICK_INK_AS: Record<string, 'a'> = { 'head/Hijab': 'a', 'head/hat-hip': 'a' };
+/** source units: strokes thinner than 2 x ERODE disappear; REGROW < ERODE leaves the ink ring */
+const ERODE = 14, REGROW = 6;
+
+/** the layers that go over the ink: solid ink recoloured as hair (or hat) */
+function overInk(cat: string, name: string, a: Source): Array<[string, Pt[][]]> {
+  const kind = THICK_INK_AS[`${cat}/${name}`] ?? THICK_INK[cat];
+  if (!kind || !a.inks.length) return [];
+  const r = thickInk(a.width, a.height, a.inks, ERODE, REGROW);
+  return r.regions[0].area > 20 ? [[kind, trace(r, [r.regions[0].mask], 0, 2)]] : [];
+}
+
 function colourLayers(cat: string, name: string, a: Source): Array<[string, Pt[][]]> {
   const out: Array<[string, Pt[][]]> = [];
   const spec = REGIONS[`${cat}/${name}`];
@@ -307,6 +323,7 @@ function importDir(cat: string, prefix = ''): Atom[] {
     const extra: Layer[] = colourLayers(cat, file.replace(/\.svg$/, ''), a).map(([k, loops]) => [k, transformPath(loopsToSegs(loops), toRig)]);
     const firstInk = layers.findIndex(l => l[0] === 'i');
     layers.splice(firstInk < 0 ? layers.length : firstInk, 0, ...extra);
+    layers.push(...overInk(cat, file.replace(/\.svg$/, ''), a).map(([k, loops]) => [k, transformPath(loopsToSegs(loops), toRig)] as Layer));
     return { id: prefix + slug(name), name, l: layers, box: box.map(Math.round) as Atom['box'] };
   });
 }
