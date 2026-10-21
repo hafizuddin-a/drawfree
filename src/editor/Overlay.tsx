@@ -20,6 +20,7 @@ interface Props {
 
 export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
   useEditor(s => s.view);   // re-measure when the view moves
+  useEditor(s => s.art);    // and when the Open Peeps body art arrives (the figure grows)
   const it = useEditor(selectedItem), pose = useEditor(s => s.pose), resetRotation = useEditor(s => s.resetRotation);
   const extra = useEditor(s => s.extra), marquee = useEditor(s => s.marquee);
   const group = extra.length > 0;

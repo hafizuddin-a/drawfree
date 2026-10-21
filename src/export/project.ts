@@ -46,6 +46,8 @@ function cleanItem(raw: unknown, fix: Fixes): Item | null {
   if (raw.kind === 'char') {
     const base = newCharacter(), c: Character = { ...base, ...place(base), id };
     for (const k of PART_SLOTS) {
+      // files from before bodies existed have none: the posable figure, quietly
+      if (k === 'body' && raw.body === undefined) { c.body = 'rig'; continue; }
       const ok = hasPart(PART_LISTS[k], raw[k]);
       if (!ok) fix.fixed++;
       c[k] = ok ? (raw[k] as string) : PART_LISTS[k][0].id;

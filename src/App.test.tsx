@@ -70,7 +70,7 @@ describe('the editor', () => {
     click('Pose');
     expect(document.querySelectorAll('#stage .jh')).toHaveLength(4);
     expect(document.querySelectorAll('#stage .bh')).toHaveLength(4);
-    expect(screen.getByRole('tab', { name: 'Pose' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Body' }).getAttribute('aria-selected')).toBe('true');
     expect(document.querySelectorAll('[data-c]')).toHaveLength(0);          // corners wait while posing
     click('Cheering');
     expect(Math.round((selectedItem(st()) as Character).pose.aL[0])).toBe(-148);

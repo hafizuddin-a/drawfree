@@ -1,4 +1,5 @@
 /* Save, open and copy: the parts of file IO that touch the store and the browser. */
+import { loadBodyArt } from '../parts/bodies';
 import { currentFrame, useEditor } from '../state/store';
 import { MAX_FILE_BYTES, ProjectError, parseProject, projectFileName, toProject } from './project';
 import { downloadBlob, readText } from './download';
@@ -26,7 +27,8 @@ export async function openProjectFile(file: File | undefined): Promise<void> {
 }
 
 /** Copies the current frame as SVG. If the browser blocks the clipboard, `fallback` gets the text to show for manual copying. */
-export function copyFrameSvg(transparent: boolean, fallback: (svg: string) => void): void {
+export async function copyFrameSvg(transparent: boolean, fallback: (svg: string) => void): Promise<void> {
+  await loadBodyArt().catch(() => undefined);   // usually already in; offline, copy what can be drawn
   const svg = frameToSVG(currentFrame(useEditor.getState()), { transparent });
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(svg).then(() => useEditor.getState().showToast('SVG copied'), () => fallback(svg));
   else fallback(svg);

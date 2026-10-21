@@ -8,7 +8,7 @@ export type Bend = 1 | -1;
 export type LimbPose = [number, number, Bend];
 export type Pose = Record<LimbId, LimbPose>;
 
-export type PartSlot = 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'glasses' | 'facial';
+export type PartSlot = 'body' | 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'glasses' | 'facial';
 export type ColorSlot = 'skin' | 'hairC' | 'topC' | 'botC' | 'shoeC' | 'hatC';
 
 export interface Placement {
@@ -66,6 +66,9 @@ export interface PartInfo {
 export interface PeepArt { id: string; name: string; l: ReadonlyArray<readonly [kind: string, d: string]> }
 /** Hairstyles (which include the head), expressions, facial hair and glasses are all Open Peeps parts. */
 export interface PeepPart extends PartInfo { art: PeepArt }
+/** A body: the posable figure ('rig') or an Open Peeps body standing, sitting or waist up. `box` is the Open Peeps
+    art's bounds in rig space [x0, y0, x1, y1]; the art itself loads on demand (parts/bodies.ts). */
+export interface BodyPart extends PartInfo { kind: 'rig' | 'stand' | 'sit' | 'bust'; box?: readonly [number, number, number, number] }
 /** `sleeve` is the sleeve length along the arm (0 = sleeveless), `sw` the sleeve width. */
 export interface TopPart extends PartInfo { sleeve: number; sw: number; draw: (c: string, skin: string) => string }
 /** `leg` is how far down the leg the trousers reach (0 = skirt), `lw` their width. */

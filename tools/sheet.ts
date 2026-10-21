@@ -2,7 +2,8 @@
 // usage: tsx tools/sheet.ts <out.png>
 import fs from 'node:fs';
 import { Resvg } from '@resvg/resvg-js';
-import { BOTTOMS, FACE, FACIAL, GLASSES, HAIR, PROPS, SHOES, TOPS } from '../src/parts';
+import { BODIES, BOTTOMS, FACE, FACIAL, GLASSES, HAIR, PROPS, SHOES, TOPS } from '../src/parts';
+import { loadBodyArt } from '../src/parts/bodies';
 import { POSES, poseFrom } from '../src/rig/poses';
 import { charSVG, newCharacter, propSVG } from '../src/rig/renderCharacter';
 import type { Character, PartInfo } from '../src/types';
@@ -15,6 +16,9 @@ const place = (svg: string, label: string) => {
   body += `<g transform="translate(${x} ${y}) scale(0.5)">${svg}</g><text x="${x}" y="${y + 120}" font-size="14" text-anchor="middle" font-family="sans-serif">${label}</text>`;
   n++;
 };
+await loadBodyArt();
+// every Open Peeps body, with a darker skin and coloured clothes so the colour regions show
+for (const b of BODIES.filter(x => x.kind !== 'rig')) place(charSVG(newCharacter({ body: b.id, skin: '#c68a62', topC: '#4aa8ff', botC: '#ffe08a', shoeC: '#ff9a4d', hair: 'long-curly' })), b.id);
 for (const p of POSES) place(charSVG(newCharacter({ pose: poseFrom(p.t) })), p.id);
 for (const h of HAIR) place(charSVG(newCharacter({ hair: h.id, hairC: '#c97b4a', skin: '#e9b996' })), 'hair ' + h.id);
 for (const t of TOPS) place(charSVG(newCharacter({ top: t.id, topC: '#ffe08a' })), 'top ' + t.id);

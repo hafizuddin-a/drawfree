@@ -2,6 +2,7 @@ import { svgMarkup } from './markup';
 
 /* Icon paths are static strings in this file, so they are injected as markup. */
 const ICONS = {
+  body: '<circle cx="12" cy="5.5" r="3"/><path d="M5.5 21v-4.5a6.5 6.5 0 0113 0V21"/>',
   hair: '<path d="M6 20v-8a6 6 0 0112 0v8"/><path d="M8.5 11.5c3 0 5-1.4 6.5-3.5"/>',
   face: '<circle cx="12" cy="12" r="8.5"/><path d="M9 10v1.4M15 10v1.4"/><path d="M8.8 14.5c1.8 2 4.6 2 6.4 0"/>',
   top: '<path d="M8.5 4L3 7l2 4.2 3-1V20h8V10.2l3 1L21 7l-5.5-3a3.6 3.6 0 01-7 0z"/>',

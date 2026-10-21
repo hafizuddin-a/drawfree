@@ -1,11 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { boot } from './boot';
+import { boot, loadArt } from './boot';
 import { useEditor } from './state/store';
 import './styles/tokens.css';
 
 boot(useEditor);
+void loadArt(useEditor);
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root');

@@ -24,7 +24,7 @@ describe('autosave', () => {
   });
   it('ignores state that is not saved (selection, tab, search)', () => {
     const a = startAutosave(useEditor);
-    useEditor.getState().select('x'); useEditor.getState().setTab('pose'); useEditor.getState().setQuery('q');
+    useEditor.getState().select('x'); useEditor.getState().setTab('body'); useEditor.getState().setQuery('q');
     vi.advanceTimersByTime(1000);
     expect(stored()).toBeNull();
     a.stop();

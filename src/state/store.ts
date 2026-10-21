@@ -2,7 +2,7 @@
    so React.memo can skip untouched characters and undo snapshots are plain references. */
 import { create } from 'zustand';
 import type { Aspect, Character, ColorSlot, Frame, Item, LimbId, LimbPose, PartSlot, Placement } from '../types';
-import { CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, BOTTOMS, SHOES, SKIN, TOPS, PROPS } from '../parts';
+import { BODIES, CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, BOTTOMS, SHOES, SKIN, TOPS, PROPS } from '../parts';
 import { LIMBS } from '../rig/geometry';
 import { ik } from '../rig/ik';
 import { presetPose, rig } from '../rig/poses';
@@ -12,7 +12,7 @@ import { DEFAULT_VIEW, type Pt, type View, clampView, panBy as panView, zoomAt }
 import { historyActions, type HistorySlice } from './history';
 import { newId, seedFrames } from './seed';
 
-export type TabId = 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'extras' | 'pose' | 'props' | 'scene';
+export type TabId = 'body' | 'hair' | 'face' | 'top' | 'bottom' | 'shoes' | 'extras' | 'props' | 'scene';
 export type ItemAction = 'pose' | 'flip' | 'dup' | 'front' | 'del';
 export interface Toast { id: number; msg: string; ms: number }
 
@@ -34,6 +34,8 @@ export interface EditorState extends HistorySlice {
   toast: Toast | null;
   /** the stage's zoom and pan. Not in undo history and not saved. */
   view: View;
+  /** bumps when the Open Peeps body art finishes loading, so everything drawn with it redraws */
+  art: number;
 
   showToast: (msg: string, ms?: number) => void;
   select: (id: string | null) => void;
@@ -116,10 +118,12 @@ const pickId = <T extends { id: string }>(a: readonly T[]): string => pick(a).id
 const mapChar = (it: Item, fn: (c: Character) => Character): Item => (it.kind === 'char' ? fn(it) : it);
 
 let toastSeq = 0;
+/** the body a new character gets */
+export const NEW_BODY = 'stand-resting-1';
 
 const initialState = () => ({
   name: DEFAULT_NAME, aspect: '16:9' as Aspect, frames: seedFrames(), fi: 0, sel: null as string | null, extra: [] as string[], marquee: null as EditorState['marquee'],
-  tab: 'hair' as TabId, q: '', pose: false, toast: null as Toast | null, view: DEFAULT_VIEW, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
+  tab: 'hair' as TabId, q: '', pose: false, toast: null as Toast | null, view: DEFAULT_VIEW, art: 0, past: [] as HistorySlice['past'], future: [] as HistorySlice['future']
 });
 
 export const useEditor = create<EditorState>()((set, get) => {
@@ -187,9 +191,14 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
     setNote: text => set(s => ({ frames: editFrame(s, f => ({ ...f, note: text })) })),
 
-    applyPart: (slot, id) => editChar(c => ({ ...c, [slot]: id })),
+    applyPart: (slot, id) => {
+      // pose handles belong to the posable figure
+      if (slot === 'body' && id !== 'rig') set({ pose: false });
+      editChar(c => ({ ...c, [slot]: id }));
+    },
     applyColor: (slot, color) => editChar(c => ({ ...c, [slot]: color })),
-    applyPose: id => editChar(c => ({ ...c, pose: presetPose(id) })),
+    // a preset pose is for the posable figure, so it switches an Open Peeps body to it
+    applyPose: id => editChar(c => ({ ...c, body: 'rig', pose: presetPose(id) })),
 
     addProp: id => {
       h.snap();
@@ -202,7 +211,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     addChar: () => {
       h.snap();
       const n = currentFrame(get()).items.filter(i => i.kind === 'char').length;
-      const c = newCharacter({ id: newId(), x: 240 + (n % 4) * 160, y: 300 });
+      // new characters get an Open Peeps body (founder's choice); the posable figure is one pick away in the Body tab
+      const c = newCharacter({ id: newId(), x: 240 + (n % 4) * 160, y: 300, body: NEW_BODY });
       set(s => ({ frames: editFrame(s, f => ({ ...f, items: [...f.items, c] })), sel: c.id, extra: [] }));
     },
     shuffle: () => {
@@ -212,7 +222,10 @@ export const useEditor = create<EditorState>()((set, get) => {
         get().addChar(); c = charTarget(get());
         if (!c) return;
       } else h.snap();
+      const kind = BODIES.find(b => b.id === c.body)?.kind ?? 'rig';
       const look: Partial<Character> = {
+        // an Open Peeps body changes to another of the same kind (standing, sitting, waist up); the figure stays
+        body: kind === 'rig' ? 'rig' : pickId(BODIES.filter(b => b.kind === kind)),
         hair: pickId(HAIR), hairC: pick(HAIRC), face: pickId(FACE), skin: pick(SKIN), top: pickId(TOPS), topC: pick(CLOTH),
         bottom: pickId(BOTTOMS), botC: pick(CLOTH), shoes: pickId(SHOES), shoeC: pick(CLOTH), hatC: pick(CLOTH),
         glasses: Math.random() < 0.4 ? pickId(GLASSES) : 'none', facial: Math.random() < 0.3 ? pickId(FACIAL) : 'none'
@@ -223,7 +236,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     act: a => {
       if (!selectedItem(get())) return;
       if (a === 'pose') {                                                      // posing works on one character: the primary selection
-        set(s => (s.pose ? { pose: false } : { pose: true, tab: 'pose', q: '' }));
+        set(s => (s.pose ? { pose: false } : { pose: true, tab: 'body', q: '' }));
         return;
       }
       const picked = selectedItems(get()), ids = new Set(picked.map(i => i.id));

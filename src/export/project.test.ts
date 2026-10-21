@@ -90,6 +90,17 @@ describe('project files', () => {
     for (const gone of ['hat', 'neck', 'neckC']) expect(gone in a, gone).toBe(false);
     expect(toProject(r.state).version).toBe(2);
   });
+  it('bodies: kept through a save, the posable figure when missing (older files) or unknown (counted as a fix)', () => {
+    const p = fileOf(), c = loose(p.frames[0].items[0]);
+    c.body = 'sit-wheelchair';
+    expect((parseProject(JSON.stringify(p)).state.frames[0].items[0] as Character).body).toBe('sit-wheelchair');
+    delete c.body;
+    let r = parseProject(JSON.stringify(p));
+    expect((r.state.frames[0].items[0] as Character).body).toBe('rig'); expect(r.fixed).toBe(0);
+    c.body = 'stand-moonwalk';
+    r = parseProject(JSON.stringify(p));
+    expect((r.state.frames[0].items[0] as Character).body).toBe('rig'); expect(r.fixed).toBe(1);
+  });
   it('a version 1 file with unknown ids still repairs them after migrating', () => {
     const r = parseProject(JSON.stringify({ version: 1, frames: [{ items: [{ kind: 'char', hair: 'mullet' }] }] }));
     expect((r.state.frames[0].items[0] as Character).hair).toBe(HAIR[0].id);

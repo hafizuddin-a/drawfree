@@ -18,13 +18,16 @@ interface ButtonProps {
   /** 'before' or 'after' while this frame is the drop target of a reorder */
   drop: 'before' | 'after' | null;
   dragging: boolean;
+  /** the Open Peeps art counter from the store */
+  art: number;
   onPointerDown: (e: React.PointerEvent<HTMLButtonElement>, index: number) => void;
   onClick: (index: number) => void;
   onMove: (from: number, to: number) => void;
 }
 
-const FrameButton = memo(function FrameButton({ frame, index, on, drop, dragging, onPointerDown, onClick, onMove }: ButtonProps) {
-  const src = useMemo(() => svgImgSrc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">${frameArt(frame)}</svg>`), [frame]);
+const FrameButton = memo(function FrameButton({ frame, index, on, drop, dragging, art, onPointerDown, onClick, onMove }: ButtonProps) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `art` bumps when the Open Peeps body art arrives, so the thumbnail redraws with it
+  const src = useMemo(() => svgImgSrc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">${frameArt(frame)}</svg>`), [frame, art]);
   const cls = [styles.fr, on ? styles.on : '', dragging ? styles.dragging : '', drop === 'before' ? styles.before : '', drop === 'after' ? styles.after : ''].filter(Boolean).join(' ');
   return (
     <button type="button" className={cls} data-frame-id={frame.id} aria-label={`Frame ${index + 1}`} aria-current={on ? 'true' : undefined}
@@ -49,6 +52,7 @@ export function FrameStrip() {
   // of a character does not redraw them on every pointer move. A frame added a moment ago is shown at once, with its live art.
   const deferred = useDeferredValue(live);
   const art = new Map(deferred.map(f => [f.id, f]));
+  const peepArt = useEditor(s => s.art);
   const { setNote, addFrame, dupFrame, delFrame, moveFrame, selectFrame } = useEditor.getState();
   const list = useRef<HTMLDivElement>(null);
   // the drag session lives in a ref with window listeners, like the stage's. Only what is drawn goes in state.
@@ -123,7 +127,7 @@ export function FrameStrip() {
       <div ref={list} className={`${styles.frames} ${reorder ? styles.reordering : ''}`}>
         {live.map((f, i) => {
           const drop = reorder && i === reorder.over && reorder.over !== reorder.from ? (reorder.over < reorder.from ? 'before' : 'after') : null;
-          return <FrameButton key={f.id} frame={art.get(f.id) ?? f} index={i} on={f.id === currentId} drop={drop} dragging={reorder?.from === i}
+          return <FrameButton key={f.id} frame={art.get(f.id) ?? f} art={peepArt} index={i} on={f.id === currentId} drop={drop} dragging={reorder?.from === i}
             onPointerDown={onPointerDown} onClick={onClick} onMove={onMoveKey} />;
         })}
         <button type="button" className={`${styles.fr} ${styles.add}`} aria-label="Add frame" title="Add frame" onClick={addFrame}>+</button>

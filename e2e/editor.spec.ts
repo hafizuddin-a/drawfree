@@ -45,7 +45,7 @@ test.describe('posing', () => {
   test('dragging a hand handle follows the pointer, and the elbow dot flips the bend', async ({ page }) => {
     await selectFirstChar(page);
     await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
-    await expect(page.getByRole('tab', { name: 'Pose' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Body' })).toHaveAttribute('aria-selected', 'true');
     const hand = page.locator('.jh.hitc[data-limb="aL"]'), from = await centre(hand);
     const to = { x: from.x - 14, y: from.y - 30 };
     await drag(page, from, to);
@@ -63,10 +63,27 @@ test.describe('posing', () => {
 
   test('a preset pose changes the arms', async ({ page }) => {
     await selectFirstChar(page);
-    await page.getByRole('tab', { name: 'Pose' }).click();
+    await page.getByRole('tab', { name: 'Body' }).click();
     const before = await body(page).innerHTML();
     await page.getByRole('button', { name: 'Cheering' }).click();
     expect(await body(page).innerHTML()).not.toBe(before);
+  });
+});
+
+test.describe('Open Peeps bodies', () => {
+  test('a body from the Body tab: its art loads, the selection box fits it, Pose is not offered, and a preset pose brings the figure back', async ({ page }) => {
+    await selectFirstChar(page);
+    await page.getByRole('tab', { name: 'Body' }).click();
+    await page.getByRole('button', { name: 'Cycling' }).click();
+    await expect(page.getByRole('toolbar').getByRole('button', { name: 'Pose' })).toHaveCount(0);
+    // the art arrives as a separate chunk; once it has, the box hugs the bike (measured as the app does, without
+    // strokes), which is far wider than a head on its own
+    await expect.poll(() => page.evaluate(() => {
+      const s = (document.querySelector('[class*="selbox"]') as HTMLElement).getBoundingClientRect(), g = (document.querySelector('#stage .item .body .figure') as SVGGElement).getBoundingClientRect();
+      return Math.abs(s.width - g.width) < 30 && g.width > 150;
+    })).toBe(true);
+    await page.getByRole('button', { name: 'Waving' }).click();
+    await expect(page.getByRole('toolbar').getByRole('button', { name: 'Pose' })).toBeVisible();
   });
 });
 

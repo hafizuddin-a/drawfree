@@ -7,16 +7,21 @@ import { Resvg } from '@resvg/resvg-js';
 export type Pt = [number, number];
 /** pixels per source unit when rasterising */
 const R = 2;
+/** source units rasterised around the canvas: some art runs past its file's edges (a leg cut off at x = 0) */
+const M = 300;
 
 export interface Region { id: number; area: number; mask: Uint8Array }
-export interface Raster { w: number; h: number; regions: Region[]; label: Int32Array }
+/** `pad`: pixels the ink was thickened by (see `close`), added back when tracing */
+export interface Raster { w: number; h: number; regions: Region[]; label: Int32Array; pad: number }
 
-/** Rasterises `fills` (white silhouette pieces) under `inks` and labels the enclosed white areas. */
-export function segment(width: number, height: number, fills: string[], inks: string[], cuts: Pt[][] = []): Raster {
-  const w = Math.ceil(width * R), h = Math.ceil(height * R);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${width} ${height}">` +
+/** Rasterises `fills` (white silhouette pieces) under `inks` and labels the enclosed white areas. `close` thickens
+    the ink by that many units first, which shuts small gaps between strokes (a collar line that stops just short
+    of the neck) without hand-placed cuts; `trace` grows the regions back by the same amount. */
+export function segment(width: number, height: number, fills: string[], inks: string[], cuts: Pt[][] = [], close = 0): Raster {
+  const w = Math.ceil((width + 2 * M) * R), h = Math.ceil((height + 2 * M) * R);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${-M} ${-M} ${width + 2 * M} ${height + 2 * M}">` +
     fills.map(d => `<path d="${d}" fill="#ff0000" fill-rule="evenodd"/>`).join('') +
-    inks.map(d => `<path d="${d}" fill="#000000" fill-rule="evenodd"/>`).join('') +
+    inks.map(d => `<path d="${d}" fill="#000000" fill-rule="evenodd"${close ? ` stroke="#000000" stroke-width="${close}" stroke-linejoin="round"` : ''}/>`).join('') +
     cuts.map(c => `<polyline points="${c.map(p => p.join(',')).join(' ')}" fill="none" stroke="#000000" stroke-width="6" stroke-linecap="round"/>`).join('') + '</svg>';
   const px = new Resvg(svg, { shapeRendering: 0 }).render().pixels;
   const inside = new Uint8Array(w * h);
@@ -38,7 +43,7 @@ export function segment(width: number, height: number, fills: string[], inks: st
     }
     regions.push({ id, area: tail / (R * R), mask });
   }
-  return { w, h, regions, label };
+  return { w, h, regions, label, pad: Math.ceil((close / 2) * R) };
 }
 
 /** A point well inside a region (the pixel with the most of the region around it). Unlike the centroid,
@@ -55,12 +60,12 @@ export function innerPoint(r: Raster, g: Region): Pt {
     }
     if (n > best) { best = n; bx = x; by = y; }
   }
-  return [Math.round(bx / R), Math.round(by / R)];
+  return [Math.round(bx / R - M), Math.round(by / R - M)];
 }
 
 /** the region under a source-space point, or the nearest one within 6 units */
 export function regionAt(r: Raster, p: Pt): Region | undefined {
-  const x0 = Math.round(p[0] * R), y0 = Math.round(p[1] * R);
+  const x0 = Math.round((p[0] + M) * R), y0 = Math.round((p[1] + M) * R);
   for (let rad = 0; rad <= 6 * R; rad++) {
     for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
@@ -110,11 +115,11 @@ function simplify(pts: Pt[], tol: number): Pt[] {
 }
 
 /** Traces every boundary loop of the union of `masks` (outer edges and holes) as source-space polygons. */
-export function trace(r: Raster, masks: Uint8Array[], grow = 3, tol = 1): Pt[][] {
+export function trace(r: Raster, masks: Uint8Array[], grow = 3, tol = 3): Pt[][] {
   const { w, h } = r;
   const m0 = new Uint8Array(w * h);
   for (const m of masks) for (let i = 0; i < m.length; i++) if (m[i]) m0[i] = 1;
-  const m = dilate(m0, w, h, grow);
+  const m = dilate(m0, w, h, grow + r.pad);
   const at = (x: number, y: number) => (x >= 0 && y >= 0 && x < w && y < h ? m[y * w + x] : 0);
   // directed edges on the pixel-corner lattice, clockwise around filled pixels
   const next = new Map<number, number[]>();
@@ -139,7 +144,7 @@ export function trace(r: Raster, masks: Uint8Array[], grow = 3, tol = 1): Pt[][]
         const list = next.get(k);
         if (!list?.length) break;
         const n = list.pop() as number;
-        loop.push([(k % (w + 1)) / R, Math.floor(k / (w + 1)) / R]);
+        loop.push([(k % (w + 1)) / R - M, Math.floor(k / (w + 1)) / R - M]);
         k = n;
         if (k === start) break;
       }
@@ -157,7 +162,7 @@ export function reviewSVG(width: number, height: number, r: Raster, inks: string
     const d = loops.map(l => 'M' + l.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('L') + 'Z').join('');
     return `<path d="${d}" fill="${hue(g.id)}" fill-rule="evenodd"/>`;
   }).join('');
-  const labels = r.regions.filter(g => g.area > 30).map(g => ({ g, p: innerPoint(r, g) })).map(({ g, p }) =>
+  const labels = r.regions.filter(g => g.area > (process.env.MINAREA ? +process.env.MINAREA : 30)).map(g => ({ g, p: innerPoint(r, g) })).map(({ g, p }) =>
     `<text x="${p[0]}" y="${p[1]}" font-size="${Math.max(10, width / 40)}" font-family="sans-serif" font-weight="700" fill="#0028ff" text-anchor="middle">${g.id}</text>`).join('');
   let grid = '';
   for (let x = 25; x < width; x += 25) grid += `<path d="M${x} 0V${height}" stroke="#000" stroke-opacity="${x % 100 ? 0.12 : 0.3}"/>` + (x % 100 ? '' : `<text x="${x + 2}" y="12" font-size="11" fill="#c00">${x}</text>`);
