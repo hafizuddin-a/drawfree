@@ -22,3 +22,7 @@ if (typeof document !== 'undefined') {
   afterEach(() => { cleanup(); localStorage.clear(); });
 }
 afterEach(() => { vi.useRealTimers(); });
+
+// the Open Peeps body art is a lazy chunk in the app; tests draw with it from the start
+const { loadBodyArt } = await import('../parts/bodies');
+await loadBodyArt();

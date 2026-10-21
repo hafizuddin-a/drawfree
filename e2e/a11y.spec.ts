@@ -23,7 +23,7 @@ test('in pose mode', async ({ page }) => {
   await page.getByRole('toolbar').getByRole('button', { name: 'Pose' }).click();
   expect(await violations(page)).toEqual([]);
 });
-for (const tab of ['Face', 'Tops', 'Extras', 'Props', 'Scene']) {
+for (const tab of ['Body', 'Face', 'Tops', 'Extras', 'Props', 'Scene']) {
   test(`the picker, ${tab} tab`, async ({ page }) => {
     await page.getByRole('tab', { name: tab }).click();
     expect(await violations(page)).toEqual([]);

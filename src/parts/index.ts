@@ -1,17 +1,18 @@
 /* Part registry: every list in one place, with id lookups that fall back to the section's first part. */
 import type { PartSlot, PartInfo } from '../types';
 import { FACE, FACIAL, GLASSES, HAIR } from './heads';
+import { BODIES } from './bodies';
 import { TOPS } from './tops';
 import { BOTTOMS } from './bottoms';
 import { SHOES } from './shoes';
 import { PROPS } from './props';
 
-export { HAIR, FACE, GLASSES, FACIAL, TOPS, BOTTOMS, SHOES, PROPS };
+export { BODIES, HAIR, FACE, GLASSES, FACIAL, TOPS, BOTTOMS, SHOES, PROPS };
 export { SKIN, HAIRC, CLOTH } from './palettes';
 
 /** the character part lists by slot, for validation and generic code */
 export const PART_LISTS: { readonly [K in PartSlot]: readonly PartInfo[] } = {
-  hair: HAIR, face: FACE, top: TOPS, bottom: BOTTOMS, shoes: SHOES, glasses: GLASSES, facial: FACIAL
+  body: BODIES, hair: HAIR, face: FACE, top: TOPS, bottom: BOTTOMS, shoes: SHOES, glasses: GLASSES, facial: FACIAL
 };
 export const PART_SLOTS = Object.keys(PART_LISTS) as PartSlot[];
 

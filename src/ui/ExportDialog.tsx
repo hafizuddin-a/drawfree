@@ -125,7 +125,7 @@ export function ExportDialog({ onClose, onCopyFallback }: Props) {
 
       <p className={styles.status} role="status">{status}</p>
       <div className={dialogActions}>
-        {prefs.scope === 'frame' && f.fmt === 'svg' && <Button onClick={() => { onClose(); copyFrameSvg(f.transparent, onCopyFallback); }}>Copy SVG</Button>}
+        {prefs.scope === 'frame' && f.fmt === 'svg' && <Button onClick={() => { onClose(); void copyFrameSvg(f.transparent, onCopyFallback); }}>Copy SVG</Button>}
         <Button onClick={onClose}>{busy ? 'Cancel' : 'Close'}</Button>
         <Button primary data-autofocus disabled={busy} onClick={run}>{label}</Button>
       </div>

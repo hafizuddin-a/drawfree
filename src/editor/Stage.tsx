@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, type RefObject, forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Character, Item } from '../types';
-import { bodyTransform, itemFigure, itemShadow, itemTransform, propDef } from '../rig/renderCharacter';
+import { bodyTransform, charBounds, isPosable, itemFigure, itemShadow, itemTransform, propDef } from '../rig/renderCharacter';
 import { rig } from '../rig/poses';
 import { f1 } from '../parts/draw';
 import { frameBG } from '../scenes/scenes';
@@ -34,21 +34,26 @@ function PoseHandles({ c, px }: { c: Character; px: number }) {
 }
 
 /** One item. Memoised on the item itself, so only the item being dragged re-renders. */
-const ItemView = memo(function ItemView({ item, handles, label, selected, px }: { item: Item; handles: boolean; label: string; selected: boolean; px: number }) {
-  const shadow = useMemo(() => itemShadow(item), [item]), figure = useMemo(() => itemFigure(item), [item]);
+/** `art` bumps when the Open Peeps body art arrives, so a character drawn before it redraws. */
+const ItemView = memo(function ItemView({ item, handles, label, selected, px, art }: { item: Item; handles: boolean; label: string; selected: boolean; px: number; art: number }) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `art` is a redraw signal: the drawing reads the loaded art from parts/bodies
+  const shadow = useMemo(() => itemShadow(item), [item, art]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: as above
+  const figure = useMemo(() => itemFigure(item), [item, art]);
   const isChar = item.kind === 'char';
+  const [hx0, hy0, hx1, hy1] = isChar ? charBounds(item) : [-130, -200, 130, 40];
   return (
     <g className="item" data-id={item.id} transform={itemTransform(item)}>
       {/* The hit area is also the keyboard stop: it has no text inside, so its name never disagrees with what is drawn. Focusing selects. */}
       {/* biome-ignore lint/a11y/useSemanticElements: an SVG rect cannot be a <button>; this is how items become reachable by keyboard */}
-      <rect className="hit" x={-130} y={isChar ? -290 : -200} width={260} height={isChar ? 490 : 240} fill="transparent"
+      <rect className="hit" x={hx0} y={hy0} width={hx1 - hx0} height={hy1 - hy0} fill="transparent"
         role="button" tabIndex={0} aria-label={label} aria-pressed={selected}
         onFocus={() => useEditor.getState().select(item.id)}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); useEditor.getState().select(item.id); } }} />
       <g className="body" transform={bodyTransform(item)}>
         <g className="shadow" {...svgMarkup(shadow)} />
         <g className="figure" {...svgMarkup(figure)} />
-        {handles && isChar && <g className="handles"><PoseHandles c={item} px={px} /></g>}
+        {handles && isChar && isPosable(item) && <g className="handles"><PoseHandles c={item} px={px} /></g>}
       </g>
     </g>
   );
@@ -87,14 +92,14 @@ export const Stage = forwardRef<SVGSVGElement, Props>(function Stage({ onPointer
   const items = useEditor(s => currentFrame(s).items), bgColor = useEditor(s => currentFrame(s).bg), scene = useEditor(s => currentFrame(s).scene);
   const sel = useEditor(s => s.sel), extra = useEditor(s => s.extra), pose = useEditor(s => s.pose);
   const picked = new Set(sel ? [sel, ...extra] : []);
-  const view = useEditor(s => s.view), px = useStagePx(svg);
+  const view = useEditor(s => s.view), art = useEditor(s => s.art), px = useStagePx(svg);
   // the background is redrawn only when it changes, not on every drag
   const bg = useMemo(() => frameBG({ bg: bgColor, scene }, true), [bgColor, scene]);
   return (
     // biome-ignore lint/a11y/useSemanticElements: the stage is an SVG, which cannot be a fieldset. role=group (not img) because its items are focusable.
     <svg id="stage" ref={attach} viewBox={viewBox(view)} preserveAspectRatio="xMidYMid meet" role="group" aria-label="Storyboard frame" onPointerDown={onPointerDown}>
       <g {...svgMarkup(bg)} />
-      {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel && !extra.length} selected={picked.has(it.id)} label={labelOf(items, i)} px={px} />)}
+      {items.map((it, i) => <ItemView key={it.id} item={it} handles={pose && it.id === sel && !extra.length} selected={picked.has(it.id)} label={labelOf(items, i)} px={px} art={art} />)}
     </svg>
   );
 });

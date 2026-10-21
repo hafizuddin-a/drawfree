@@ -11,8 +11,9 @@ export const newId = (): string => 'i' + (counter++) + Math.random().toString(36
 export function seedFrames(): Frame[] {
   const A = newCharacter({ id: newId(), x: 270, y: 300, s: 0.82, hair: 'hat-beanie', hatC: '#ffe08a', facial: 'full', skin: '#c68a62', face: 'smile-big',
     top: 'tee', topC: '#141414', bottom: 'jeans', botC: '#cfe8ff', pose: presetPose('wave') });
-  const B = newCharacter({ id: newId(), x: 690, y: 300, s: 0.82, flip: true, hair: 'gray-bun', hairC: '#c97b4a', glasses: 'glasses', face: 'explaining',
-    top: 'blazer', topC: '#ffffff', bottom: 'skirt', botC: '#141414', shoes: 'boot', shoeC: '#141414', pose: presetPose('hips') });
+  // one posable figure (waving) and one Open Peeps body, so both kinds are on the board from the start
+  const B = newCharacter({ id: newId(), x: 690, y: 300, s: 0.82, flip: true, body: 'stand-blazer-3', hair: 'gray-bun', hairC: '#c97b4a', glasses: 'glasses', face: 'explaining',
+    topC: '#ffe08a', botC: '#ffffff', shoeC: '#141414' });
   return [{
     id: newId(), bg: DEFAULT_BG, scene: 'cafe', note: 'Two colleagues meet outside the café.',
     items: [

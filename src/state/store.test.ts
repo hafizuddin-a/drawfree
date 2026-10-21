@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MAX_HISTORY } from './history';
-import { charTarget, currentFrame, resetEditorStore, selectedIds, selectedItem, selectedItems, useEditor } from './store';
+import { NEW_BODY, charTarget, currentFrame, resetEditorStore, selectedIds, selectedItem, selectedItems, useEditor } from './store';
+import { BODIES } from '../parts';
 import { fk } from '../rig/ik';
 import { LIMBS } from '../rig/geometry';
 import { rig } from '../rig/poses';
@@ -122,6 +123,29 @@ describe('dressing and posing', () => {
   });
 });
 
+describe('bodies', () => {
+  const kindOf = (id: string) => BODIES.find(b => b.id === id)?.kind;
+  it('the seed has a posable figure and an Open Peeps body; new characters get an Open Peeps body', () => {
+    expect(chars().map(c => kindOf(c.body))).toEqual(['rig', 'stand']);
+    st().addChar();
+    expect(chars()[2].body).toBe(NEW_BODY); expect(kindOf(NEW_BODY)).toBe('stand');
+  });
+  it('picking an Open Peeps body turns pose mode off; a preset pose switches back to the posable figure', () => {
+    st().select(firstChar().id); st().act('pose');
+    expect(st().pose).toBe(true);
+    st().applyPart('body', 'sit-bike');
+    expect(firstChar().body).toBe('sit-bike'); expect(st().pose).toBe(false);
+    st().applyPose('wave');
+    expect(firstChar().body).toBe('rig');
+  });
+  it('shuffle keeps the kind of body: the figure stays a figure, a waist-up body stays waist up', () => {
+    st().select(firstChar().id);
+    for (let i = 0; i < 5; i++) { st().shuffle(); expect(firstChar().body).toBe('rig'); }
+    st().applyPart('body', 'bust-hoodie');
+    for (let i = 0; i < 5; i++) { st().shuffle(); expect(kindOf(firstChar().body)).toBe('bust'); }
+  });
+});
+
 describe('item actions', () => {
   it('flip, duplicate, bring to front and delete', () => {
     const a = firstChar();
@@ -141,10 +165,10 @@ describe('item actions', () => {
     copy.pose.aR[0] += 1;                                        // would corrupt the original if it were shared
     expect(chars()[0].pose.aR[0]).not.toBe(copy.pose.aR[0]);
   });
-  it('the pose toggle opens the Pose tab and clears search without making history', () => {
+  it('the pose toggle opens the Body tab (where the preset poses are) and clears search without making history', () => {
     st().select(firstChar().id); st().setQuery('x');
     st().act('pose');
-    expect(st().pose).toBe(true); expect(st().tab).toBe('pose'); expect(st().q).toBe(''); expect(st().past).toHaveLength(0);
+    expect(st().pose).toBe(true); expect(st().tab).toBe('body'); expect(st().q).toBe(''); expect(st().past).toHaveLength(0);
     st().act('pose'); expect(st().pose).toBe(false);
   });
   it('nudge, rotate and reset rotation', () => {

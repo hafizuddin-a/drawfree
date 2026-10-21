@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist', sourcemap: false, target: 'es2022',
+    // the Open Peeps body art (about 580 KB raw, 176 KB gzipped) is one on-demand chunk on purpose; tools/check.js
+    // guards the first-load budget, so Vite's per-chunk size warning is only noise
+    chunkSizeWarningLimit: 700,
     // pdf-lib is loaded on demand (dynamic import) and gets a readable chunk name
     rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'pdf-lib', test: /node_modules[\\/]pdf-lib/ }] } } }
   },
