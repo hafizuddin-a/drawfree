@@ -57,10 +57,11 @@ describe('every part draws well-formed SVG for every palette colour', () => {
     const svg = peepSVG({ id: 't', name: 't', l }, { skin: '#111111', hair: '#222222', hat: '#333333', top: '#444444', bottom: '#555555', shoe: '#666666' });
     expect(svg.match(/fill="[^"]+"/g)).toEqual(['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#ffffff', '#141414', '#4f66af'].map(c => `fill="${c}"`));
   });
-  it('tops, bottoms and shoes, with every skin tone where it matters', () => {
-    for (const t of TOPS) for (const c of CLOTH) for (const s of SKIN) assertWellFormed(t.draw(c, s), `top ${t.id} ${c} ${s}`);
-    for (const b of BOTTOMS) for (const c of CLOTH) assertWellFormed(b.pelvis(c), `bottom ${b.id} ${c}`);
-    for (const sh of SHOES) for (const c of CLOTH) for (const s of SKIN) assertWellFormed(sh.draw(c, s), `shoes ${sh.id} ${c} ${s}`);
+  it('tops, bottoms and shoes on the posable figure, in every colour and skin tone', () => {
+    const base = newCharacter();
+    for (const t of TOPS) for (const c of CLOTH) for (const s of SKIN) assertWellFormed(charSVG({ ...base, top: t.id, topC: c, skin: s }), `top ${t.id} ${c} ${s}`);
+    for (const b of BOTTOMS) for (const c of CLOTH) assertWellFormed(charSVG({ ...base, bottom: b.id, botC: c }), `bottom ${b.id} ${c}`);
+    for (const sh of SHOES) for (const c of CLOTH) assertWellFormed(charSVG({ ...base, shoes: sh.id, shoeC: c }), `shoes ${sh.id} ${c}`);
   });
   it('props, including a speech bubble with awkward text', () => {
     for (const p of PROPS) assertWellFormed(propSVG({ prop: p.id, text: p.text }), p.id);
@@ -73,7 +74,7 @@ describe('every part draws well-formed SVG for every palette colour', () => {
     const base = newCharacter();
     const slots = { body: BODIES, hair: HAIR, face: FACE, top: TOPS, bottom: BOTTOMS, shoes: SHOES, glasses: GLASSES, facial: FACIAL };
     for (const [slot, list] of Object.entries(slots)) for (const p of list) assertWellFormed(charSVG({ ...base, [slot]: p.id }), `${slot} ${p.id}`);
-    for (const p of POSES) assertWellFormed(itemSVG({ ...base, pose: poseFrom(p.t), flip: true, r: 30 }), `pose ${p.id}`);
+    for (const p of POSES) assertWellFormed(itemSVG({ ...base, pose: poseFrom(base, p.t), flip: true, r: 30 }), `pose ${p.id}`);
   });
 });
 

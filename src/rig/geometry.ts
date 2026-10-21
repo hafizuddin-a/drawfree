@@ -1,42 +1,57 @@
-/* Rig anchors and geometry. Local space: pelvis at (0,0), figure faces +x, y grows downward.
-   Head anchor (0,-212), shoulders (+-33,-140), hips (+-19,-4). The posable figure draws its torso TORSO_DROP and its
-   head HEAD_DROP below the coordinates the torso and head art use (renderCharacter.ts). Anything new a part needs to anchor to goes here. */
-import type { LimbId, Vec } from '../types';
+/* Rig geometry. Local space: pelvis near (0,0), figure faces +x, y grows downward. The posable figure is a cutout
+   puppet sliced from an Open Peeps body (parts/cutout.ts), so its joints are that body's joints, moved down with the
+   art onto the ground line. Arms come from the top's family, legs from the bottom's: each limb is two bones with
+   the lengths and rest angles of the art it was cut from. */
+import type { Character, LimbId, Vec } from '../types';
+import { FAMILIES, type Family, type JointId } from '../parts/cutout';
+import { PEEP_BODY_BOX } from '../parts/peeps/bodies.box.gen';
+import { BOTTOMS, TOPS, lookup } from '../parts';
 
 export const RAD = Math.PI / 180;
-export const G = {
-  // TORSO_DROP below the torso art's own shoulder line (-150), for the stockier Open Peeps proportions
-  sh: { L: [-33, -140] as Vec, R: [33, -140] as Vec },
-  hip: { L: [-19, -4] as Vec, R: [19, -4] as Vec },
-  A1: 64, A2: 58, L1: 92, L2: 88
-};
-/** origin, upper-bone length, lower-bone length for each limb */
-export const LIMBS: Record<LimbId, readonly [Vec, number, number]> = {
-  aL: [G.sh.L, G.A1, G.A2], aR: [G.sh.R, G.A1, G.A2], lL: [G.hip.L, G.L1, G.L2], lR: [G.hip.R, G.L1, G.L2]
-};
+/** The ground line in rig space. Open Peeps bodies, the puppet's included, are moved down to stand on it (waist-up
+    bodies rest their bottom edge on it), so swapping a body keeps the character on the same floor. */
+export const GROUND = 189;
 export const LIMB_IDS: readonly LimbId[] = ['aL', 'aR', 'lL', 'lR'];
 
-/** torso outline for tops; `h` is the hem y */
-export const torsoPath = (h: number): string =>
-  `M-34,-167 C-20,-171 20,-171 34,-167 C45,-163 46,-150 44,-137 C41,-110 38,-82 38,-60 L38,${h} Q0,${h + 4} -38,${h} L-38,-60 C-38,-82 -41,-110 -44,-137 C-46,-150 -45,-163 -34,-167 Z`;
+const famById = new Map(FAMILIES.map(f => [f.id, f]));
+export const familyOf = (id: string): Family => famById.get(id) ?? FAMILIES[0];
+/** how far a family's art moves down to stand on the ground line */
+export const dropOf = (f: Family): number => GROUND - (PEEP_BODY_BOX[f.base]?.[3] ?? GROUND);
 
-function pointAt(pts: readonly Vec[], dist: number): Vec {
-  let left = dist;
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1], b = pts[i], seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (left <= seg) { const t = seg ? left / seg : 0; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
-    left -= seg;
-  }
-  return pts[pts.length - 1];
+/** the angle of the bone a -> b in degrees: 0 straight down, positive toward +x */
+export const boneAngle = (a: Vec, b: Vec): number => Math.atan2(b[0] - a[0], b[1] - a[1]) / RAD;
+
+export interface Limb {
+  /** the limb's root (shoulder or hip) in local space */
+  o: Vec;
+  l1: number;
+  l2: number;
+  /** the two bones' angles in the art at rest */
+  rest: [number, number];
+  /** the family whose art the limb is cut from, its drop, and the limb's joints in that art */
+  fam: Family;
+  dy: number;
+  j: readonly [JointId, JointId, JointId];
 }
-/** the part of a polyline between distances d0 and d1 along it */
-export function slice(pts: readonly Vec[], d0: number, d1: number): Vec[] {
-  const out: Vec[] = [pointAt(pts, d0)];
-  let acc = 0;
-  for (let i = 1; i < pts.length; i++) {
-    acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    if (acc > d0 && acc < d1) out.push(pts[i]);
-  }
-  out.push(pointAt(pts, d1));
+export const LIMB_JOINTS: Readonly<Record<LimbId, readonly [JointId, JointId, JointId]>> = {
+  aL: ['shL', 'elL', 'wrL'], aR: ['shR', 'elR', 'wrR'], lL: ['hpL', 'knL', 'anL'], lR: ['hpR', 'knR', 'anR']
+};
+
+const topOf = lookup(TOPS), bottomOf = lookup(BOTTOMS);
+const cache = new Map<string, Record<LimbId, Limb>>();
+/** the four limbs of a character's puppet: arms from its top's family, legs from its bottom's */
+export function limbsOf(c: Pick<Character, 'top' | 'bottom'>): Record<LimbId, Limb> {
+  const key = c.top + '|' + c.bottom, hit = cache.get(key);
+  if (hit) return hit;
+  const arms = familyOf(topOf(c.top).fam), legs = familyOf(bottomOf(c.bottom).fam);
+  const one = (l: LimbId): Limb => {
+    const fam = l[0] === 'a' ? arms : legs, dy = dropOf(fam), [a, b, e] = LIMB_JOINTS[l].map(k => fam.j[k]);
+    return {
+      o: [a[0], a[1] + dy], l1: Math.hypot(b[0] - a[0], b[1] - a[1]), l2: Math.hypot(e[0] - b[0], e[1] - b[1]),
+      rest: [boneAngle(a, b), boneAngle(b, e)], fam, dy, j: LIMB_JOINTS[l]
+    };
+  };
+  const out = { aL: one('aL'), aR: one('aR'), lL: one('lL'), lR: one('lR') };
+  cache.set(key, out);
   return out;
 }

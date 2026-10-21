@@ -3,9 +3,7 @@
 import { create } from 'zustand';
 import type { Aspect, Character, ColorSlot, Frame, Item, LimbId, LimbPose, PartSlot, Placement } from '../types';
 import { BODIES, CLOTH, FACIAL, FACE, GLASSES, HAIR, HAIRC, BOTTOMS, SHOES, SKIN, TOPS, PROPS } from '../parts';
-import { LIMBS } from '../rig/geometry';
-import { ik } from '../rig/ik';
-import { presetPose, rig } from '../rig/poses';
+import { presetPose, rig, solveLimb } from '../rig/poses';
 import { canFlip, newCharacter } from '../rig/renderCharacter';
 import { DEFAULT_NAME, cleanName, type ProjectState } from '../export/project';
 import { DEFAULT_VIEW, type Pt, type View, clampView, panBy as panView, zoomAt } from '../editor/view';
@@ -181,8 +179,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     flipBend: (id, limb) => {
       if (!currentFrame(get()).items.some(i => i.id === id)) return;
       h.snap();
-      const [o, l1, l2] = LIMBS[limb];
-      set(s => ({ frames: editItem(s, id, i => mapChar(i, c => ({ ...c, pose: { ...c.pose, [limb]: ik(o, l1, l2, rig(c)[limb][2], c.pose[limb][2] === 1 ? -1 : 1) } }))) }));
+      set(s => ({ frames: editItem(s, id, i => mapChar(i, c => ({ ...c, pose: { ...c.pose, [limb]: solveLimb(c, limb, rig(c)[limb][2], c.pose[limb][2] === 1 ? -1 : 1) } }))) }));
     },
     beginTextEdit: () => h.snap(),
     setBubbleText: text => {
@@ -198,7 +195,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
     applyColor: (slot, color) => editChar(c => ({ ...c, [slot]: color })),
     // a preset pose is for the posable figure, so it switches an Open Peeps body to it
-    applyPose: id => editChar(c => ({ ...c, body: 'rig', pose: presetPose(id) })),
+    applyPose: id => editChar(c => ({ ...c, body: 'rig', pose: presetPose(id, c) })),
 
     addProp: id => {
       h.snap();

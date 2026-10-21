@@ -8,7 +8,8 @@ export interface PeepColors { skin: string; hair: string; hat: string; top?: str
 
 export const PEEP_INK = '#141414';
 
-const fillOf = (k: string, c: PeepColors): string =>
+/** the fill for a layer kind */
+export const fillOf = (k: string, c: PeepColors): string =>
   k === 'i' ? PEEP_INK : k === 's' ? c.skin : k === 'h' ? c.hair : k === 'a' ? c.hat : k === 'w' ? '#ffffff'
   : k === 't' ? c.top ?? '#ffffff' : k === 'b' ? c.bottom ?? '#ffffff' : k === 'f' ? c.shoe ?? '#ffffff' : k;
 

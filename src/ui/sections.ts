@@ -3,15 +3,18 @@ import type { ColorSlot, PartInfo, PartSlot } from '../types';
 import { BOTTOMS, CLOTH, FACE, FACIAL, GLASSES, HAIR, HAIRC, PROPS, SHOES, SKIN, TOPS } from '../parts';
 import { POSES } from '../rig/poses';
 import { BUST_BODIES, SITTING_BODIES, STANDING_BODIES } from '../parts/bodies';
-import { GROUND, HEAD_DROP, TORSO_DROP } from '../rig/renderCharacter';
+import { GROUND } from '../rig/renderCharacter';
+import { dropOf, familyOf } from '../rig/geometry';
 import { SCENES } from '../scenes/scenes';
 import { BGC } from '../scenes/backgrounds';
 import type { TabId } from '../state/store';
 
-// Framed for the posable figure, which every thumbnail but a body's is drawn on: its head sits HEAD_DROP and its torso
-// TORSO_DROP below the coordinates the head and top art use. Derived from those constants so the framing follows them.
-// expressions, glasses and facial hair use the whole-head view too: a close-up cut the head off on every side
-const HEADV = `-42 ${-266 + HEAD_DROP} 88 88`, TOPV = `-72 ${-190 + TORSO_DROP} 144 150`;
+// Framed for the posable figure, which every thumbnail but a body's is drawn on. It is cut from an Open Peeps body
+// moved down DROP onto the ground line, so the views follow that drop: head art spans about y -266 to -178, a top
+// -205 to -40, trousers -60 down to the soles. Expressions, glasses and facial hair use the whole-head view too.
+const DROP = dropOf(familyOf('shirt'));
+const HEADV = `-42 ${-266 + DROP} 88 88`, TOPV = `-72 ${-208 + DROP} 150 160`;
+const BOTV = `-82 ${-64 + DROP} 164 ${GROUND + 66 - DROP}`, SHOEV = `-66 ${112 + DROP} 140 ${GROUND - 106 - DROP}`;
 
 export type SectionId =
   | 'body' | 'bodySit' | 'bodyBust' | 'hair' | 'hairC' | 'face' | 'skin' | 'top' | 'topC' | 'bottom' | 'botC' | 'shoes' | 'shoeC'
@@ -48,9 +51,9 @@ export const SECS: Record<SectionId, Section> = {
   skin: { id: 'skin', kind: 'color', title: 'Skin tone', slot: 'skin', colors: SKIN },
   top: { id: 'top', kind: 'part', title: 'Tops', slot: 'top', list: TOPS, view: TOPV },
   topC: { id: 'topC', kind: 'color', title: 'Top colour', slot: 'topC', colors: CLOTH },
-  bottom: { id: 'bottom', kind: 'part', title: 'Bottoms', slot: 'bottom', list: BOTTOMS, view: '-72 -40 144 240' },
+  bottom: { id: 'bottom', kind: 'part', title: 'Bottoms', slot: 'bottom', list: BOTTOMS, view: BOTV },
   botC: { id: 'botC', kind: 'color', title: 'Bottom colour', slot: 'botC', colors: CLOTH },
-  shoes: { id: 'shoes', kind: 'part', title: 'Shoes', slot: 'shoes', list: SHOES, view: '-62 125 124 80' },
+  shoes: { id: 'shoes', kind: 'part', title: 'Shoes', slot: 'shoes', list: SHOES, view: SHOEV },
   shoeC: { id: 'shoeC', kind: 'color', title: 'Shoe colour', slot: 'shoeC', colors: CLOTH },
   glasses: { id: 'glasses', kind: 'part', title: 'Glasses', slot: 'glasses', list: GLASSES, view: HEADV },
   facial: { id: 'facial', kind: 'part', title: 'Facial hair', slot: 'facial', list: FACIAL, view: HEADV },

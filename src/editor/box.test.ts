@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { boxFromCorners, handleSide } from './box';
+import { boxFromCorners, handleAt, handleSide, toolbarSpot } from './box';
 
 type P = { x: number; y: number };
 const rect = (x: number, y: number, w: number, h: number): [P, P, P, P] => [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }];
@@ -49,4 +49,22 @@ describe('handleSide', () => {
     expect(handleSide(box(760, 225, 60, 200, 80), 800, 450)).not.toBe('above');          // its top would be off the right edge
   });
   it('always answers, even in a stage too small for any handle', () => { expect(['above', 'below', 'right', 'left']).toContain(handleSide(box(20, 20, 30, 30), 40, 40)); });
+});
+
+describe('toolbarSpot', () => {
+  it('sits right of the box, or left of it at the right edge', () => {
+    const b = boxFromCorners(rect(300, 100, 60, 200), 0);
+    expect(toolbarSpot(b, 'above', 800, 450).x).toBe(b.ax + b.aw + 12);
+    const e = boxFromCorners(rect(720, 100, 60, 200), 0);
+    expect(toolbarSpot(e, 'above', 800, 450).x).toBe(e.ax - 12 - 56);
+  });
+  it('keeps clear of the rotate handle when a turned box puts the handle beside it', () => {
+    // a tall box turned a quarter turn either way: its "above" faces a side, where the toolbar could go
+    for (const d of [80, 90, -80, -90]) {
+      const b = boxFromCorners(turn(rect(300, 100, 60, 200), d), 0), side = handleSide(b, 800, 450);
+      const h = handleAt(b, side), t = toolbarSpot(b, side, 800, 450);
+      const overlaps = h.x + 22 > t.x && h.x - 22 < t.x + 56 && h.y + 22 > t.y && h.y - 22 < t.y + 240;
+      expect(overlaps, `${d} degrees`).toBe(false);
+    }
+  });
 });

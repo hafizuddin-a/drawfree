@@ -2,9 +2,7 @@
 import type { PartSlot, PartInfo } from '../types';
 import { FACE, FACIAL, GLASSES, HAIR } from './heads';
 import { BODIES } from './bodies';
-import { TOPS } from './tops';
-import { BOTTOMS } from './bottoms';
-import { SHOES } from './shoes';
+import { BOTTOMS, SHOES, TOPS } from './garments';
 import { PROPS } from './props';
 
 export { BODIES, HAIR, FACE, GLASSES, FACIAL, TOPS, BOTTOMS, SHOES, PROPS };

@@ -73,7 +73,7 @@ describe('the editor', () => {
     expect(screen.getByRole('tab', { name: 'Body' }).getAttribute('aria-selected')).toBe('true');
     expect(document.querySelectorAll('[data-c]')).toHaveLength(0);          // corners wait while posing
     click('Cheering');
-    expect(Math.round((selectedItem(st()) as Character).pose.aL[0])).toBe(-162);
+    expect(Math.round((selectedItem(st()) as Character).pose.aL[0])).toBe(-115);
   });
 
   it('dragging a hand handle moves the hand with one undo step, and a click makes none', () => {

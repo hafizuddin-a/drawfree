@@ -37,11 +37,25 @@ export type HandleSide = 'above' | 'below' | 'right' | 'left';
 /** Where the round rotate handle goes: above the box (in the box's own turned frame), else below, else beside it, whichever first
  *  lands inside the board with room for the handle. `reach` is how far out it sits. */
 export function handleSide(b: SelBox, boardW: number, boardH: number, reach = 40, margin = 22): HandleSide {
-  const rad = (b.angle * Math.PI) / 180, c = Math.cos(rad), s = Math.sin(rad);
-  const at = (ox: number, oy: number): Pt => ({ x: b.cx + ox * c - oy * s, y: b.cy + ox * s + oy * c });
   const inside = (p: Pt) => p.x >= margin && p.x <= boardW - margin && p.y >= margin && p.y <= boardH - margin;
-  const cand: Array<[HandleSide, Pt]> = [
-    ['above', at(0, -(b.h / 2 + reach))], ['below', at(0, b.h / 2 + reach)], ['right', at(b.w / 2 + reach, 0)], ['left', at(-(b.w / 2 + reach), 0)]
-  ];
-  return cand.find(([, p]) => inside(p))?.[0] ?? 'right';
+  return (['above', 'below', 'right', 'left'] as const).find(s => inside(handleAt(b, s, reach))) ?? 'right';
+}
+
+/** where the rotate handle's centre is on the board for a side */
+export function handleAt(b: SelBox, side: HandleSide, reach = 40): Pt {
+  const rad = (b.angle * Math.PI) / 180, c = Math.cos(rad), s = Math.sin(rad);
+  const [ox, oy] = { above: [0, -(b.h / 2 + reach)], below: [0, b.h / 2 + reach], right: [b.w / 2 + reach, 0], left: [-(b.w / 2 + reach), 0] }[side];
+  return { x: b.cx + ox * c - oy * s, y: b.cy + ox * s + oy * c };
+}
+
+/** The toolbar's top-left: beside the box's axis-aligned bounds, on the right unless it would leave the board, and
+ *  on the other side when the rotate handle (a turned box can put it there) would sit under it. */
+export function toolbarSpot(b: SelBox, side: HandleSide, boardW: number, boardH: number, tw = 56, th = 240, gap = 12, hr = 22): Pt {
+  const y = Math.max(4, Math.min(b.ay, boardH - th));
+  const right = b.ax + b.aw + gap, left = Math.max(4, b.ax - gap - tw);
+  const h = handleAt(b, side);
+  const covers = (x: number) => h.x + hr > x && h.x - hr < x + tw && h.y + hr > y && h.y - hr < y + th;
+  let x = right + tw > boardW ? left : right;
+  if (covers(x)) { const other = x === right ? left : right; if (!covers(other) && other + tw <= boardW) x = other; }
+  return { x, y };
 }

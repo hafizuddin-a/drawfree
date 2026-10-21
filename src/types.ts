@@ -48,7 +48,7 @@ export interface Frame {
 export type Aspect = '16:9' | '4:3' | '1:1' | '9:16';
 
 export interface Project {
-  version: 2;
+  version: 3;
   name: string;
   frames: Frame[];
   aspect: Aspect;
@@ -69,15 +69,16 @@ export interface PeepPart extends PartInfo { art: PeepArt }
 /** A body: the posable figure ('rig') or an Open Peeps body standing, sitting or waist up. `box` is the Open Peeps
     art's bounds in rig space [x0, y0, x1, y1]; the art itself loads on demand (parts/bodies.ts). */
 export interface BodyPart extends PartInfo { kind: 'rig' | 'stand' | 'sit' | 'bust'; box?: readonly [number, number, number, number] }
-/** `sleeve` is the sleeve length along the arm (0 = sleeveless), `sw` the sleeve width. */
-export interface TopPart extends PartInfo { sleeve: number; sw: number; draw: (c: string, skin: string) => string }
-/** `leg` is how far down the leg the trousers reach (0 = skirt), `lw` their width. */
-export interface BottomPart extends PartInfo { leg: number; lw: number; stitch?: boolean; pelvis: (c: string) => string }
-/** `boot` is how much of the lower leg a boot covers. */
-export interface ShoePart extends PartInfo { boot: number; draw: (c: string, skin: string) => string }
+/** A garment for the posable figure: the clothes of an Open Peeps body (`art`) in a cutout family (parts/cutout.ts).
+    A top dresses the torso and arms, a bottom the pelvis and legs, shoes the feet, each cut from its own art. */
+export interface GarmentPart extends PartInfo { fam: string; art: string }
+export type TopPart = GarmentPart;
+export type BottomPart = GarmentPart;
+export type ShoePart = GarmentPart;
 
 export type PoseTargets = Record<LimbId, [Vec, Bend]>;
-export interface PosePreset extends PartInfo { t: PoseTargets }
+/** `t` holds targets for the limbs the preset moves; the others stay as the art was drawn */
+export interface PosePreset extends PartInfo { t: Partial<PoseTargets> }
 
 export interface PropArgs { text?: string }
 export interface PropPart extends PartInfo {

@@ -1,8 +1,9 @@
-/* Bodies: the posable figure ('rig', drawn by the rig from the top, bottom and shoe parts) or one of the Open Peeps
+/* Bodies: the posable figure ('rig', a cutout puppet dressed by the top, bottom and shoe parts) or one of the Open Peeps
    bodies (CC0), which come dressed in a fixed pose. The Open Peeps art is about 180 KB gzipped, so it is a separate
    chunk: `loadBodyArt()` fetches it once, `bodyArt(id)` returns it when it has arrived. Names, tags and bounds are
    small and always here. */
 import type { BodyPart, PeepArt } from '../types';
+import type { CutoutClips } from './peeps/cutout.gen';
 import { tags } from './draw';
 import { PEEP_BODY_BOX } from './peeps/bodies.box.gen';
 
@@ -96,14 +97,17 @@ export const BODIES: readonly BodyPart[] = [RIG_BODY, ...STANDING_BODIES, ...SIT
 if (Object.keys(PEEP_BODY_BOX).length !== BODIES.length - 1) throw new Error('an imported Open Peeps body has no name in parts/bodies.ts');
 
 const art = new Map<string, PeepArt>();
+let clips: Readonly<Record<string, CutoutClips>> = {};
 let loading: Promise<void> | null = null;
 let version = 0;
 
-/** Fetches the Open Peeps body art once. A failed fetch (offline) can be retried. */
+/** Fetches the Open Peeps body art once, with the cutout puppet's clip shapes (the posable figure is cut from the
+    same art). A failed fetch (offline) can be retried. */
 export function loadBodyArt(): Promise<void> {
-  loading ??= import('./peeps/bodies.gen').then(
-    m => {
+  loading ??= Promise.all([import('./peeps/bodies.gen'), import('./peeps/cutout.gen')]).then(
+    ([m, c]) => {
       for (const a of [...m.PEEP_STANDING, ...m.PEEP_SITTING, ...m.PEEP_BUSTS]) art.set(a.id, a);
+      clips = c.CUTOUT_CLIPS;
       version++;
     },
     (e: unknown) => { loading = null; throw e; }
@@ -112,5 +116,7 @@ export function loadBodyArt(): Promise<void> {
 }
 /** the art for a body, or undefined until loadBodyArt() has finished */
 export const bodyArt = (id: string): PeepArt | undefined => art.get(id);
+/** a cutout family's clip shapes, or undefined until loadBodyArt() has finished */
+export const cutoutClips = (fam: string): CutoutClips | undefined => clips[fam];
 /** bumps when the art arrives, so caches keyed on it (thumbnails) refresh */
 export const bodyArtVersion = (): number => version;

@@ -2,8 +2,9 @@
    The stage re-renders on every change, so the drag session lives in a ref and the move and up listeners sit on window,
    never on elements. snap() runs once, after the pointer has actually moved, so a click never creates an undo step. */
 import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
-import { LIMBS, RAD } from '../rig/geometry';
-import { ik } from '../rig/ik';
+import { RAD } from '../rig/geometry';
+import { solveLimb } from '../rig/poses';
+import { figureRect } from './measure';
 import { currentFrame, selectedIds, selectedItem, useEditor } from '../state/store';
 import type { Placement } from '../types';
 
@@ -50,7 +51,7 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
         const st = useEditor.getState(), l = Math.min(d.x0, e.clientX), r = Math.max(d.x0, e.clientX), t = Math.min(d.y0, e.clientY), b = Math.max(d.y0, e.clientY);
         st.setMarquee({ x0: d.x0, y0: d.y0, x1: e.clientX, y1: e.clientY });
         const hit = [...(stage?.querySelectorAll<SVGGElement>('.item') ?? [])].filter(el => {
-          const q = (el.querySelector('.figure') ?? el).getBoundingClientRect();
+          const fig = el.querySelector('.figure'), q = fig ? figureRect(fig) : el.getBoundingClientRect();
           return q.right >= l && q.left <= r && q.bottom >= t && q.top <= b;
         }).map(el => el.dataset.id ?? '');
         st.selectMany(d.additive ? [...new Set([...d.base, ...hit])] : hit);
@@ -76,8 +77,8 @@ export function useStageInteractions(stageRef: RefObject<SVGSVGElement | null>) 
         // inverse of the body's screen matrix: the joint lands on the pointer after flip, rotation and scale
         const body = stage.querySelector<SVGGElement>(`.item[data-id="${it.id}"] .body`);
         if (!body) return;
-        const pt = toLocal(body.getScreenCTM(), e.clientX, e.clientY), [o, l1, l2] = LIMBS[d.limb];
-        st.setLimb(it.id, d.limb, ik(o, l1, l2, [pt.x, pt.y], it.pose[d.limb][2]));
+        const pt = toLocal(body.getScreenCTM(), e.clientX, e.clientY);
+        st.setLimb(it.id, d.limb, solveLimb(it, d.limb, [pt.x, pt.y], it.pose[d.limb][2]));
       } else if (d.k === 'rotate') {
         let r = d.r0 + (Math.atan2(e.clientX - d.cx, -(e.clientY - d.cy)) - d.a0) / RAD;
         if (e.shiftKey) r = Math.round(r / 15) * 15;
