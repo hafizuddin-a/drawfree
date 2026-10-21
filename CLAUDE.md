@@ -81,7 +81,7 @@ Hairstyles (each includes the head), expressions, facial hair and glasses come f
 - **Placement.** The importer writes each body's bounds (`bodies.box.gen.ts`, in the main bundle). `charSVG` moves the body and its head down by `GROUND - box[3]` so every body stands on the ground line (`GROUND = 189`); a waist-up body rests its bottom edge there and has no shadow. `charBounds` sizes the click and focus area from the same bounds.
 - **Colour.** Skin, top, bottom and shoe regions of every body were labelled by hand in `REGIONS` (tools/import-peeps.ts) and checked on a coloured contact sheet. White soles, laces, prosthetic legs, the bike and the wheelchair stay white. Black garments are ink, as in Open Peeps.
 - **New characters** get `NEW_BODY` (stand-resting-1); `newCharacter()` defaults to `DEFAULT_BODY` (stand-shirt-3). Shuffle keeps the kind of body (standing, sitting, waist up).
-- **Picker.** The Body tab holds the Standing, Sitting and Waist-up bodies, each thumbnail framed on its own (`viewOf` in `ui/sections.ts`). Head thumbnails (hair, expressions, extras) are drawn on `DEFAULT_BODY`, whose head position `HEADV` is framed for. The Clothes tab holds the top, bottom and shoe colours.
+- **Picker.** The Body tab holds the Standing and Sitting bodies and the Tops tab the 30 waist-up ones (cropped at the chest, so they cannot go on legs), each thumbnail framed on its own (`viewOf` in `ui/sections.ts`). Head thumbnails (hair, expressions, extras) are drawn on `DEFAULT_BODY`, whose head position `HEADV` is framed for. The Clothes tab holds the top, bottom and shoe colours.
 
 ### Adding a part
 

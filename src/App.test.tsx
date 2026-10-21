@@ -73,6 +73,19 @@ describe('the editor', () => {
     expect(document.querySelectorAll('button[data-sec="body"]').length).toBeGreaterThan(20);
   });
 
+  it('the Tops tab holds the waist-up bodies, and picking one makes the character waist up', () => {
+    render(<App />);
+    selectFirstChar();
+    click('Tops', 'tab');
+    const tops = document.querySelectorAll<HTMLButtonElement>('button[data-sec="bodyBust"]');
+    expect(tops).toHaveLength(30);
+    fireEvent.click(tops[3]);
+    expect((selectedItem(st()) as Character).body).toBe(tops[3].dataset.id);
+    expect((selectedItem(st()) as Character).body.startsWith('bust-')).toBe(true);
+    click('Body', 'tab');
+    expect(document.querySelectorAll('button[data-sec="bodyBust"]')).toHaveLength(0);
+  });
+
   it('moving drags the item and records one undo step only after the pointer moves', () => {
     render(<App />);
     const id = items()[0].id, x0 = items()[0].x;

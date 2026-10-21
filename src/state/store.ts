@@ -9,7 +9,7 @@ import { DEFAULT_VIEW, type Pt, type View, clampView, panBy as panView, zoomAt }
 import { historyActions, type HistorySlice } from './history';
 import { newId, seedFrames } from './seed';
 
-export type TabId = 'body' | 'hair' | 'face' | 'clothes' | 'extras' | 'props' | 'scene';
+export type TabId = 'body' | 'tops' | 'hair' | 'face' | 'clothes' | 'extras' | 'props' | 'scene';
 export type ItemAction = 'flip' | 'dup' | 'front' | 'del';
 export interface Toast { id: number; msg: string; ms: number }
 
