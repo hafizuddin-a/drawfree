@@ -29,6 +29,9 @@ export function newCharacter(o: Partial<Character> = {}): Character {
 /** The ground line in rig space: the posable figure's soles. Open Peeps bodies are moved down to stand on it
     (waist-up bodies rest their bottom edge on it), so swapping a body keeps the character on the same floor. */
 export const GROUND = 189;
+/** The posable figure is drawn shorter than the coordinates its parts use: the torso (tops, neck) TORSO_DROP lower
+    (the shoulder joints in geometry.ts match) and the head HEAD_DROP lower, for the Open Peeps proportions. */
+export const TORSO_DROP = 10, HEAD_DROP = 20;
 
 /** The area a character can occupy in local space [x0, y0, x1, y1], for its click and focus target. */
 export function charBounds(c: Pick<Character, 'body'>): readonly [number, number, number, number] {
@@ -62,23 +65,24 @@ export function charSVG(c: Character): string {
   const r = rig(c);
   const arm = (k: 'aL' | 'aR') => {
     const pts = r[k];
-    let s = tube(pts, 18, c.skin);
+    let s = tube(pts, 20, c.skin);
     if (top.sleeve > 0) s += tube(slice(pts, 0, top.sleeve), top.sw + 3, c.topC);
     return s + hand(pts, c.skin);
   };
   const leg = (k: 'lL' | 'lR') => {
     const pts = r[k];
-    let s = tube(pts, 26, c.skin);
+    let s = tube(pts, 28, c.skin);
     if (bot.leg > 0) s += tube(slice(pts, 0, bot.leg), bot.lw + 3, c.botC);
     if (bot.leg > 100 && bot.stitch) s += `<polyline points="${pl(slice(pts, 8, bot.leg - 6))}" fill="none" stroke="${INK}" stroke-opacity=".45" stroke-width="1.4" stroke-dasharray="3 4" stroke-linecap="round"/>`;
     if (shoe.boot > 0) s += tube(slice(pts, 176 - shoe.boot, 176), Math.max(bot.lw + 3, 29) + 2, c.shoeC);
     const a = pts[2], rot = Math.max(-45, Math.min(45, -(c.pose[k][0] + c.pose[k][1]) * 0.5));
     return s + `<g transform="translate(${f1(a[0])} ${f1(a[1])}) rotate(${f1(rot)})">${shoe.draw(c.shoeC, c.skin)}</g>`;
   };
-  const head = headSVG(c);
+  // the head sits a little lower than the rig's head centre, giving the short Open Peeps neck
+  const head = `<g transform="translate(0 ${HEAD_DROP})">${headSVG(c)}</g>`;
   // the neck's top runs up under the jaw, which the head covers
   return leg('lL') + leg('lR') +
-    shp('M-9,-196 V-160 H9 V-196 Z', c.skin) + bot.pelvis(c.botC) + top.draw(c.topC, c.skin) +
+    bot.pelvis(c.botC) + `<g transform="translate(0 ${TORSO_DROP})">` + shp('M-10,-188 V-160 H10 V-188 Z', c.skin) + top.draw(c.topC, c.skin) + '</g>' +
     arm('aL') + head + arm('aR');
 }
 

@@ -1,10 +1,12 @@
 /* Rig anchors and geometry. Local space: pelvis at (0,0), figure faces +x, y grows downward.
-   Head centre (0,-212), shoulders (+-33,-150), hips (+-19,-4). Anything new a part needs to anchor to goes here. */
+   Head anchor (0,-212), shoulders (+-33,-140), hips (+-19,-4). The posable figure draws its torso TORSO_DROP and its
+   head HEAD_DROP below the coordinates the torso and head art use (renderCharacter.ts). Anything new a part needs to anchor to goes here. */
 import type { LimbId, Vec } from '../types';
 
 export const RAD = Math.PI / 180;
 export const G = {
-  sh: { L: [-33, -150] as Vec, R: [33, -150] as Vec },
+  // TORSO_DROP below the torso art's own shoulder line (-150), for the stockier Open Peeps proportions
+  sh: { L: [-33, -140] as Vec, R: [33, -140] as Vec },
   hip: { L: [-19, -4] as Vec, R: [19, -4] as Vec },
   A1: 64, A2: 58, L1: 92, L2: 88
 };
@@ -16,7 +18,7 @@ export const LIMB_IDS: readonly LimbId[] = ['aL', 'aR', 'lL', 'lR'];
 
 /** torso outline for tops; `h` is the hem y */
 export const torsoPath = (h: number): string =>
-  `M-33,-167 C-20,-171 20,-171 33,-167 C43,-164 43,-150 41,-138 L32,-60 L33,${h} L-33,${h} L-32,-60 L-41,-138 C-43,-150 -43,-164 -33,-167 Z`;
+  `M-34,-167 C-20,-171 20,-171 34,-167 C45,-163 46,-150 44,-137 C41,-110 38,-82 38,-60 L38,${h} Q0,${h + 4} -38,${h} L-38,-60 C-38,-82 -41,-110 -44,-137 C-46,-150 -45,-163 -34,-167 Z`;
 
 function pointAt(pts: readonly Vec[], dist: number): Vec {
   let left = dist;

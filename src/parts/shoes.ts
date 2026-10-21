@@ -1,11 +1,12 @@
 import type { ShoePart } from '../types';
 import { ln, shp, tags } from './draw';
 
-const SOLE = '<path d="M-12,9 H28 V15 H-12 Z" fill="#fff" stroke="#141414" stroke-width="2.6" stroke-linejoin="round"/>';
+/** a thick white sole with rounded ends, like the Open Peeps sneakers */
+const SOLE = shp('M-14,11 H32 C35,11 35.5,17 32,17 H-12 C-15.5,17 -15.5,11 -14,11 Z', '#ffffff');
 
 export const SHOES: ShoePart[] = [
   { id: 'sneaker', name: 'Sneakers', tags: tags('sneakers trainers shoes casual'), boot: 0,
-    draw: c => shp('M-11,-9 L9,-9 C14,-9 18,-4 26,1 C31,4 31,12 27,14 L-12,14 Z', c) + SOLE + ln('M2,-4 L8,-2', 2) + ln('M6,-1 L12,1', 2) },
+    draw: c => shp('M-12,-8 C-6,-11 5,-11 9,-7 C15,-3 23,0 29,4 C34,7 34,12 30,13 L-13,13 C-15,6 -15,-3 -12,-8 Z', c) + SOLE + ln('M3,-6 L9,-2', 1.6) + ln('M8,-3 L14,1', 1.6) + ln('M13,0 L19,3', 1.6) },
   { id: 'boot', name: 'Boots', tags: tags('boots tall shoes'), boot: 46,
     draw: c => shp('M-12,-12 H11 V-2 C20,0 29,5 29,12 V15 H-12 Z', c) + SOLE },
   { id: 'sandal', name: 'Sandals', tags: tags('sandals summer open'), boot: 0,

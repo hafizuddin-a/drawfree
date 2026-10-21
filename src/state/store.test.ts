@@ -100,7 +100,7 @@ describe('dressing and posing', () => {
   });
   it('applies a preset pose', () => {
     st().select(firstChar().id); st().applyPose('cheer');
-    expect(Math.round(firstChar().pose.aL[0])).toBe(-148);
+    expect(Math.round(firstChar().pose.aL[0])).toBe(-162);
   });
   it('flipBend keeps the hand where it was and flips the sign', () => {
     const c = firstChar(), before = rig(c).aR[2];
