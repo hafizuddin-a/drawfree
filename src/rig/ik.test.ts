@@ -56,8 +56,8 @@ describe('ik and fk', () => {
       }
     }
   });
-  it('rig anchors match the spec', () => {
-    expect(G.sh.L).toEqual([-33, -150]); expect(G.hip.R).toEqual([19, -4]);
+  it('rig anchors match the spec, with the shoulders 10 lower for the Open Peeps proportions (milestone 6)', () => {
+    expect(G.sh.L).toEqual([-33, -140]); expect(G.hip.R).toEqual([19, -4]);
     expect([G.A1, G.A2, G.L1, G.L2]).toEqual([64, 58, 92, 88]);
   });
 });

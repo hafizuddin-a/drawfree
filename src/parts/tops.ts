@@ -13,7 +13,7 @@ export const TOPS: TopPart[] = [
                shp('M-11,-168 L-27,-128 L-9,-104 L0,-92 L-5,-132 Z', c) + shp('M11,-168 L27,-128 L9,-104 L0,-92 L5,-132 Z', c) +
                circ(0, -70, 2.6, INK, 1) + ln('M-24,-30 H-12', 2.4) + ln('M12,-30 H24', 2.4) },
   { id: 'tank', name: 'Tank top', tags: tags('tank top sleeveless summer vest'), sleeve: 0, sw: 0,
-    draw: (c, skin) => shp(torsoPath(-4), skin) + shp('M-24,-168 L-14,-168 Q0,-150 14,-168 L24,-168 L27,-140 L29,-60 L30,-10 L-30,-10 L-29,-60 L-27,-140 Z', c) },
+    draw: (c, skin) => shp(torsoPath(-4), skin) + shp('M-24,-168 L-14,-168 Q0,-150 14,-168 L24,-168 L31,-140 C36,-110 38,-80 38,-60 L38,-6 Q0,-2 -38,-6 L-38,-60 C-38,-80 -36,-110 -31,-140 Z', c) },
   { id: 'sweater', name: 'Turtleneck', tags: tags('sweater turtleneck knit jumper long sleeve'), sleeve: 112, sw: 20,
     draw: c => shp(torsoPath(-8), c) + shp('M-14,-176 Q-14,-182 -7,-182 H7 Q14,-182 14,-176 V-166 Q14,-162 7,-162 H-7 Q-14,-162 -14,-166 Z', c) +
                ln('M-29.5,-20 L29.5,-20', 2.4) + ln('M-6,-181 V-163', 1.8) + ln('M6,-181 V-163', 1.8) },

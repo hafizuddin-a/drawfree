@@ -4,7 +4,7 @@ import { tags } from '../parts/draw';
 import { LIMBS, LIMB_IDS } from './geometry';
 import { fk, ik } from './ik';
 
-export const T_IDLE: PoseTargets = { aL: [[-34, -30], 1], aR: [[34, -30], 1], lL: [[-20, 174], -1], lR: [[20, 174], -1] };
+export const T_IDLE: PoseTargets = { aL: [[-36, -22], 1], aR: [[36, -22], 1], lL: [[-20, 174], -1], lR: [[20, 174], -1] };
 const withT = (o: Partial<PoseTargets>): PoseTargets => Object.assign({}, T_IDLE, o);
 
 export const POSES: PosePreset[] = [

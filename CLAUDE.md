@@ -56,7 +56,7 @@ A character is plain data from `newCharacter()`: part ids (`body`, `hair`, `face
 
 ### Coordinate space and rig
 
-- Local space: pelvis at (0,0), figure faces +x, head centre (0,-212), shoulders (±33,-150), hips (±19,-4). Every part is drawn in this space, which is why parts from different categories line up. The importer maps Open Peeps head space into it: the point between the eyes (head-local 309,296) lands on (13.5,-214) at scale 0.144, so the Peeps eyes sit where the rig's did.
+- Local space: pelvis at (0,0), figure faces +x, head anchor (0,-212), shoulder joints (±33,-140), hips (±19,-4). The posable figure is drawn with Open Peeps proportions: its torso art (tops, neck: drawn around a -150 shoulder line) sits `TORSO_DROP` (10) lower and its head `HEAD_DROP` (20) lower than their coordinates; the shoulder joints already include the drop. Every part is drawn in this space, which is why parts from different categories line up. The importer maps Open Peeps head space into it: the point between the eyes (head-local 309,296) lands on (13.5,-214) at scale 0.144, so the Peeps eyes sit where the rig's did.
 - Left-facing is `scale(-1 1)` on the `.body` group. Position, rotation and scale sit on the outer `.item` group.
 - Each limb is two bones. `pose` holds `[upperAngle, lowerAngle, bendSign]` per limb (`aL`, `aR` arms, `lL`, `lR` legs). Angles are degrees, 0 is straight down, positive swings toward +x.
 - `ik(origin, l1, l2, target, sign)` solves a limb from a hand or foot target. Arms default to sign +1, legs to -1. Presets in `POSES` are stored as targets and solved with IK.
@@ -84,7 +84,7 @@ Hairstyles (each includes the head), expressions, facial hair and glasses come f
 
 ### Adding a part
 
-Add an entry to the right list (for example `TOPS` in `src/parts/tops.ts`) with `id`, `name`, `tags: tags('space separated words')` and the draw function(s) its type in `types.ts` asks for, using `INK` outlines (stroke 3) and the colour passed in. A new category also needs a section in `src/ui/sections.ts` (and a slot in `PART_LISTS` if it is a character slot). Thumbnails, search and the picker UI follow from that. Run `npm test` (it draws every part with every palette colour and checks the SVG parses) and `npm run sheet`.
+Add an entry to the right list (for example `TOPS` in `src/parts/tops.ts`) with `id`, `name`, `tags: tags('space separated words')` and the draw function(s) its type in `types.ts` asks for, using `INK` outlines (stroke `W`, 2.3, matched to the Open Peeps ink) and the colour passed in. A new category also needs a section in `src/ui/sections.ts` (and a slot in `PART_LISTS` if it is a character slot). Thumbnails, search and the picker UI follow from that. Run `npm test` (it draws every part with every palette colour and checks the SVG parses) and `npm run sheet`.
 
 ## State and editor behaviour to preserve
 
@@ -146,7 +146,8 @@ Next, in the spec's order (milestones 1 to 5 are done):
    - **Heads: DONE.** 46 hairstyles, 30 expressions, 17 facial hair, 9 glasses (see "Open Peeps parts").
    - **Open Peeps bodies: DONE.** 64 bodies (see "Bodies"). The importer learned `close` (thicken the ink to shut small gaps), `rest` (unlisted white is white, for the bike), `holes` (fill a see-through mug or print white), a 300-unit margin (art runs past its canvas) and a cut along the canvas top.
    - **Still to import from the pack:** the COVID-19 templates hold masks (medical, respirator), doctor and nurse bodies and heads, and faces drawn for masks, already in colour layers (`Templates/covid-19/SVG`). The Standing, Sitting and Bust templates are combinations of the atoms; they could become ready-made characters ("cast").
-   - **Posable figure restyle**, then **props and scenes** in the same ink style. Also fix the zoom buttons covering the top right of the stage on narrow (tablet-width) layouts.
+   - **Posable figure restyle: DONE.** Outlines at the Open Peeps weight (`W` in parts/draw.ts), shoulders 10 lower and the head 20 lower (Open Peeps proportions; a standing figure and an Open Peeps body are now the same height), a boxier torso, wider trousers whose seat meets the hem, Open Peeps style hands (palm, thumb, three finger lines) and flat sneakers with thick soles and laces.
+   - Next: **props and scenes** in the same ink style. Also fix the zoom buttons covering the top right of the stage on narrow (tablet-width) layouts.
 7. **Hands and held props**, seated characters snap to chairs.
 8. **Optional share links** (Worker, R2, D1).
 Also before launch: self-host Figtree and Bricolage Grotesque (then drop the Google Fonts origins from the CSP), Lighthouse 90+ on the production URL.

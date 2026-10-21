@@ -8,7 +8,8 @@ import { SCENES } from '../scenes/scenes';
 import { BGC } from '../scenes/backgrounds';
 import type { TabId } from '../state/store';
 
-const HEADV = '-42 -266 88 88', FACEV = '-28 -246 60 60';
+// framed for the posable figure's head (HEAD_DROP below the rig's head anchor), which every head thumbnail is drawn on
+const HEADV = '-42 -256 88 88', FACEV = '-28 -236 60 60';
 
 export type SectionId =
   | 'body' | 'bodySit' | 'bodyBust' | 'hair' | 'hairC' | 'face' | 'skin' | 'top' | 'topC' | 'bottom' | 'botC' | 'shoes' | 'shoeC'
