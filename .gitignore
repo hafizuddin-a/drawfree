@@ -8,4 +8,6 @@ dist
 art-sheet.svg
 # raw Open Peeps download (78 MB, CC0). Milestone 6 imports from it into src/; keep the pack local.
 assets/open-peeps/
-.claude/
+# local Claude Code files stay out of git, except the shared project settings (no co-author attribution)
+.claude/*
+!.claude/settings.json
