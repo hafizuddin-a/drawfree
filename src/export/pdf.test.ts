@@ -62,7 +62,9 @@ describe('buildPdf', () => {
     const notes = ['', '   ', 'x'.repeat(2000), 'word '.repeat(300), 'a\n\tb'];
     const r = await buildPdf(board(5, i => notes[i]), 'T', { size: 'a4', orientation: 'portrait', layout: 'three', notes: true }, render);
     expect(r.bytes.length).toBeGreaterThan(500);
-  });
+    // wrapping 2000-character notes with real font metrics takes about 3.5 s here and longer on a shared CI runner,
+    // past vitest's 5 s default (it failed the staging deploy of #17)
+  }, 30_000);
   it('fails clearly when a frame cannot be rendered, and when the board is empty', async () => {
     const bad = vi.fn(async () => { throw new Error('render failed'); });
     await expect(buildPdf(board(2), 'x', { size: 'a4', orientation: 'landscape', layout: 'one', notes: true }, bad)).rejects.toThrow('render failed');

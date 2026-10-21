@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { body, box, centre, drag, items, numberIn, selectFirstChar, transformOf } from './helpers';
+import { body, box, centre, drag, figureOf, items, numberIn, selectFirstChar, transformOf } from './helpers';
 
 test.beforeEach(async ({ page }) => { await page.goto('/'); await expect(items(page)).toHaveCount(4); });
 
@@ -303,10 +303,10 @@ test.describe('zoom and pan', () => {
 
   test('the selection box follows the character after zooming', async ({ page }) => {
     // measured the way the app does it: getBoundingClientRect of the body (Playwright's boundingBox also counts the outline's stroke)
-    const gap = () => page.evaluate(() => {
-      const s = (document.querySelector('[class*="selbox"]') as HTMLElement).getBoundingClientRect(), g = (document.querySelector('#stage .item .body .figure') as SVGGElement).getBoundingClientRect();
+    const gap = async () => {
+      const s = await page.locator('[class*="selbox"]').evaluate(e => e.getBoundingClientRect().toJSON() as DOMRect), g = await box(figureOf(page));
       return Math.max(Math.abs(s.x - (g.x - 6)), Math.abs(s.y - (g.y - 6)), Math.abs(s.width - (g.width + 12)), Math.abs(s.height - (g.height + 12)));
-    });
+    };
     await page.getByRole('button', { name: 'Zoom in' }).click();
     await selectFirstChar(page);
     expect(await gap()).toBeLessThan(1.5);
@@ -319,14 +319,18 @@ test.describe('zoom and pan', () => {
 
 test.describe('the selection box turns with the item', () => {
   /** the box's own size (unaffected by its turn), its turn in degrees, and the page rectangles of the box and the character */
-  const read = (page: import('@playwright/test').Page) => page.evaluate(() => {
-    const s = document.querySelector('[class*="selbox"]') as HTMLElement, g = document.querySelector('#stage .item .body .figure') as SVGGElement;
-    const m = new DOMMatrix(getComputedStyle(s).transform), r = s.getBoundingClientRect(), b = g.getBoundingClientRect(), h = document.querySelector('[title^="Rotate"]')?.getBoundingClientRect();
-    const board = (s.parentElement as HTMLElement).getBoundingClientRect();
-    return { w: s.offsetWidth, h: s.offsetHeight, deg: (Math.atan2(m.b, m.a) * 180) / Math.PI,
-      box: { x: r.x, y: r.y, r: r.right, b: r.bottom }, body: { x: b.x, y: b.y, r: b.right, b: b.bottom },
-      handle: h ? { x: h.x + h.width / 2, y: h.y + h.height / 2 } : null, board: { x: board.x, y: board.y, r: board.right, b: board.bottom } };
-  });
+  const read = async (page: import('@playwright/test').Page) => {
+    const b = await box(figureOf(page));
+    const t = await page.evaluate(() => {
+      const s = document.querySelector('[class*="selbox"]') as HTMLElement;
+      const m = new DOMMatrix(getComputedStyle(s).transform), r = s.getBoundingClientRect(), h = document.querySelector('[title^="Rotate"]')?.getBoundingClientRect();
+      const board = (s.parentElement as HTMLElement).getBoundingClientRect();
+      return { w: s.offsetWidth, h: s.offsetHeight, deg: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+        box: { x: r.x, y: r.y, r: r.right, b: r.bottom },
+        handle: h ? { x: h.x + h.width / 2, y: h.y + h.height / 2 } : null, board: { x: board.x, y: board.y, r: board.right, b: board.bottom } };
+    });
+    return { ...t, body: { x: b.x, y: b.y, r: b.x + b.width, b: b.y + b.height } };
+  };
 
   test('it takes the item\'s turn, keeps its size, and still contains the character', async ({ page }) => {
     await selectFirstChar(page);

@@ -1,9 +1,10 @@
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject, useCallback, useLayoutEffect, useState } from 'react';
 import { selectedItem, useEditor } from '../state/store';
-import { type SelBox, boxFromCorners, handleSide } from './box';
+import { type SelBox, boxFromCorners, handleSide, toolbarSpot } from './box';
 import { f1 } from '../parts/draw';
 import { Icon } from '../ui/icons';
 import { Toolbar } from '../ui/Toolbar';
+import { figureBBox, figureRect } from './measure';
 import styles from './Editor.module.css';
 
 /** The selection box turns with the item. It is measured from the rendered .body group: its local bounding box, with the four corners
@@ -30,7 +31,7 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     // several items selected: one upright box around all of them (their figures, not their shadows)
     if (it && extra.length && stageRef.current && boardRef.current) {
       const b = boardRef.current.getBoundingClientRect();
-      const rects = [it.id, ...extra].map(id => stageRef.current?.querySelector(`.item[data-id="${id}"] .figure`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
+      const rects = [it.id, ...extra].map(id => stageRef.current?.querySelector(`.item[data-id="${id}"] .figure`)).filter((f): f is Element => !!f).map(figureRect);
       if (!rects.length) { setBox(prev => (prev === null ? prev : null)); return; }
       const l = Math.min(...rects.map(r => r.left)) - b.left, t = Math.min(...rects.map(r => r.top)) - b.top;
       const r = Math.max(...rects.map(q => q.right)) - b.left, bt = Math.max(...rects.map(q => q.bottom)) - b.top;
@@ -43,7 +44,7 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     if (!g || !board || !m) { setBox(b => (b === null ? b : null)); return; }
     // the figure and the pose handles, not the ground shadow (which is wider than the character and vanishes past 8 degrees of turn)
     const parts = [...g.querySelectorAll<SVGGraphicsElement>(':scope > .figure, :scope > .handles')];
-    const boxes = (parts.length ? parts : [g]).map(p => p.getBBox());
+    const boxes = (parts.length ? parts : [g]).map(p => (p.classList.contains('figure') ? figureBBox(p) : p.getBBox()));
     const x0 = Math.min(...boxes.map(q => q.x)), y0 = Math.min(...boxes.map(q => q.y));
     const bb = { x: x0, y: y0, width: Math.max(...boxes.map(q => q.x + q.width)) - x0, height: Math.max(...boxes.map(q => q.y + q.height)) - y0 };
     const b = board.getBoundingClientRect();
@@ -70,13 +71,9 @@ export function Overlay({ stageRef, boardRef, onHandleDown }: Props) {
     return <div className={styles.marquee} style={{ left: Math.min(marquee.x0, marquee.x1) - b.left, top: Math.min(marquee.y0, marquee.y1) - b.top, width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }} />;
   })() : null;
   if (!it || !box) return <div className={styles.overlay}>{mq}</div>;
-  // the toolbar sits beside the axis-aligned bounds of the turned box
-  const { ax: x, ay: y, aw: w } = box;
-  let tx = x + w + 12;
-  if (tx + 56 > box.bw) tx = Math.max(4, x - 68);
-  const ty = Math.max(4, Math.min(y, box.bh - 240));
-  // the round rotate handle rides on the box: above it (in the box's own turned frame), else below, else beside it
-  const side = handleSide(box, box.bw, box.bh);
+  // the round rotate handle rides on the box: above it (in the box's own turned frame), else below, else beside it;
+  // the toolbar sits beside the axis-aligned bounds of the turned box, out of the handle's way
+  const side = handleSide(box, box.bw, box.bh), { x: tx, y: ty } = toolbarSpot(box, side, box.bw, box.bh);
   const handle: CSSProperties = { above: { left: '50%', top: -40 }, below: { left: '50%', top: 'calc(100% + 40px)' }, right: { left: 'calc(100% + 40px)', top: '50%' }, left: { left: -40, top: '50%' } }[side];
   const line: CSSProperties | null = side === 'above' ? { left: '50%', top: -28 } : side === 'below' ? { left: '50%', top: '100%' } : null;
   return (

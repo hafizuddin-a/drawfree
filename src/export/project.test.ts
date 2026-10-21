@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { HAIR } from '../parts';
+import { HAIR, TOPS } from '../parts';
 import { LIMB_IDS } from '../rig/geometry';
-import { ik } from '../rig/ik';
-import { LIMBS } from '../rig/geometry';
-import { presetPose } from '../rig/poses';
+import { presetPose, solveLimb } from '../rig/poses';
 import { newCharacter } from '../rig/renderCharacter';
 import type { Character, Frame, Project } from '../types';
 import {
@@ -13,8 +11,8 @@ import {
 const strip = (p: Project): Project => ({ ...p, updatedAt: '-' });
 
 function sample() {
-  const c: Character = newCharacter({ id: 'c1', x: 270.5, y: 301.25, s: 0.82, r: 12.5, flip: true, hair: 'hat-beanie', hatC: '#ffffff', facial: 'full', pose: presetPose('wave') });
-  c.pose.aR = ik(LIMBS.aR[0], LIMBS.aR[1], LIMBS.aR[2], [60, -40], -1);          // an arbitrary solved pose with a flipped bend
+  const c: Character = newCharacter({ id: 'c1', x: 270.5, y: 301.25, s: 0.82, r: 12.5, flip: true, hair: 'hat-beanie', hatC: '#ffffff', facial: 'full', pose: presetPose('wave', { top: 'shirt', bottom: 'trousers' }) });
+  c.pose.aR = solveLimb(c, 'aR', [60, -40], -1);          // an arbitrary solved pose with a flipped bend
   const frames: Frame[] = [
     { id: 'f1', bg: '#e7f3fd', scene: 'cafe', note: 'Two colleagues meet.', items: [c,
       { id: 'p1', kind: 'prop', prop: 'bubble', x: 480, y: 118, s: 1, r: 0, flip: false, text: 'Morning! Ready to shoot?' },
@@ -88,7 +86,19 @@ describe('project files', () => {
     expect(a).toMatchObject({ hair: 'short-1', face: 'smile-big', glasses: 'glasses', facial: 'full', hairC: '#141414' });
     expect(b).toMatchObject({ hair: 'hat-beanie', face: 'tired', glasses: 'sunglasses', facial: 'moustache-1', hairC: '#e0b95a' });
     for (const gone of ['hat', 'neck', 'neckC']) expect(gone in a, gone).toBe(false);
-    expect(toProject(r.state).version).toBe(2);
+    expect(toProject(r.state).version).toBe(PROJECT_VERSION);
+  });
+  it('migrates version 2 hand-drawn clothes to Open Peeps garments, keeping the pose angles', () => {
+    const c = { ...newCharacter({ id: 'c' }), top: 'hoodie', bottom: 'skirt', shoes: 'boot', pose: { aL: [10, 20, 1], aR: [-30, 40, -1], lL: [5, -10, -1], lR: [0, 0, -1] } };
+    const r = parseProject(JSON.stringify({ version: 2, frames: [{ items: [c, { ...c, id: 'd', top: 'nope' }] }] }));
+    const [a, d] = r.state.frames[0].items as Character[];
+    expect(a).toMatchObject({ top: 'shirt', bottom: 'trousers', shoes: 'slip-ons' });
+    expect(a.pose.aR).toEqual([-30, 40, -1]);
+    expect(d.top).toBe(TOPS[0].id); expect(r.fixed).toBe(1);          // an id no version knew is still repaired
+  });
+  it('the vanilla autosave shape gets every migration too', () => {
+    const r = cleanFrames(fromLegacyFrames([{ items: [{ type: 'char', top: 'tee', bottom: 'jeans', shoes: 'sneaker', hair: 'crop' }] }]));
+    expect(r.frames[0].items[0]).toMatchObject({ top: 'shirt', bottom: 'trousers', shoes: 'slip-ons', hair: 'short-1' });
   });
   it('bodies: kept through a save, the posable figure when missing (older files) or unknown (counted as a fix)', () => {
     const p = fileOf(), c = loose(p.frames[0].items[0]);

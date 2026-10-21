@@ -3,6 +3,8 @@ test-results
 playwright-report
 dist
 *.png
+# the cutout puppet beside real Open Peeps poses (tools/cutout.ts compare), for judging by eye
+!docs/cutout/*.png
 .wrangler
 .DS_Store
 art-sheet.svg

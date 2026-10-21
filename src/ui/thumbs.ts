@@ -27,7 +27,7 @@ export function thumbSrc(sec: ListSection, part: PartInfo, base: Character | nul
   let inner: string;
   if (sec.kind === 'scene') inner = frameBG({ bg, scene: part.id });
   else if (sec.kind === 'props') inner = propSVG({ prop: part.id, text: (part as { text?: string }).text });
-  else if (sec.kind === 'pose') inner = charSVG({ ...ch, pose: poseFrom((POSES.find(p => p.id === part.id) ?? POSES[0]).t) });
+  else if (sec.kind === 'pose') inner = charSVG({ ...ch, pose: poseFrom(ch, (POSES.find(p => p.id === part.id) ?? POSES[0]).t) });
   else inner = charSVG({ ...ch, [sec.slot]: part.id });
   const src = svgImgSrc(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${sec.viewOf?.(part.id) ?? sec.view}">${inner}</svg>`);
   if (cache.size >= MAX_CACHE) cache.clear();

@@ -3,7 +3,7 @@ import { MAX_HISTORY } from './history';
 import { NEW_BODY, charTarget, currentFrame, resetEditorStore, selectedIds, selectedItem, selectedItems, useEditor } from './store';
 import { BODIES } from '../parts';
 import { fk } from '../rig/ik';
-import { LIMBS } from '../rig/geometry';
+import { limbsOf } from '../rig/geometry';
 import { rig } from '../rig/poses';
 import type { Character } from '../types';
 
@@ -100,12 +100,12 @@ describe('dressing and posing', () => {
   });
   it('applies a preset pose', () => {
     st().select(firstChar().id); st().applyPose('cheer');
-    expect(Math.round(firstChar().pose.aL[0])).toBe(-162);
+    expect(Math.round(firstChar().pose.aL[0])).toBe(-115);
   });
   it('flipBend keeps the hand where it was and flips the sign', () => {
     const c = firstChar(), before = rig(c).aR[2];
     st().flipBend(c.id, 'aR');
-    const n = firstChar(), after = fk(LIMBS.aR[0], LIMBS.aR[1], LIMBS.aR[2], n.pose.aR[0], n.pose.aR[1])[2];
+    const n = firstChar(), L = limbsOf(n).aR, after = fk(L.o, L.l1, L.l2, n.pose.aR[0], n.pose.aR[1])[2];
     expect(n.pose.aR[2]).toBe(-c.pose.aR[2]);
     expect(Math.hypot(after[0] - before[0], after[1] - before[1])).toBeLessThan(0.01);
     expect(st().past).toHaveLength(1);

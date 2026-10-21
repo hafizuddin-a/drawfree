@@ -7,7 +7,7 @@ import { newCharacter } from '../rig/renderCharacter';
 import { DEFAULT_BG } from '../scenes/backgrounds';
 import { hasScene } from '../scenes/scenes';
 
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 const ASPECTS: readonly Aspect[] = ['16:9', '4:3', '1:1', '9:16'];
 export const DEFAULT_NAME = 'Untitled storyboard';
 const MAX_FRAMES = 200, MAX_ITEMS = 200;
@@ -116,9 +116,26 @@ export function framesV1toV2(raw: unknown): unknown {
   return raw.map(f => (isObj(f) && Array.isArray(f.items) ? { ...f, items: f.items.map(itemV1toV2) } : f));
 }
 
+/* Version 3 (milestone 6) made the posable figure a cutout puppet of Open Peeps art and dropped the hand-drawn tops,
+   bottoms and shoes for Open Peeps clothes. Poses are bone angles either way, so they carry over as they are. */
+const V3_TOP: Record<string, string> = { tee: 'shirt', hoodie: 'shirt', blazer: 'shirt', tank: 'shirt', sweater: 'shirt', jacket: 'shirt' };
+const V3_BOTTOM: Record<string, string> = { jeans: 'trousers', shorts: 'trousers', skirt: 'trousers', wide: 'trousers' };
+const V3_SHOES: Record<string, string> = { sneaker: 'slip-ons', boot: 'slip-ons', sandal: 'slip-ons', bare: 'slip-ons' };
+function itemV2toV3(it: unknown): unknown {
+  if (!isObj(it) || it.kind !== 'char') return it;
+  const pick = (m: Record<string, string>, v: unknown) => (typeof v === 'string' && v in m ? m[v] : v);
+  return { ...it, top: pick(V3_TOP, it.top), bottom: pick(V3_BOTTOM, it.bottom), shoes: pick(V3_SHOES, it.shoes) };
+}
+/** frames of a version 2 project in the version 3 shape */
+export function framesV2toV3(raw: unknown): unknown {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map(f => (isObj(f) && Array.isArray(f.items) ? { ...f, items: f.items.map(itemV2toV3) } : f));
+}
+
 /** One step per old version: MIGRATIONS[n] turns a version n file into version n + 1. */
 const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
-  1: p => ({ ...p, version: 2, frames: framesV1toV2(p.frames) })
+  1: p => ({ ...p, version: 2, frames: framesV1toV2(p.frames) }),
+  2: p => ({ ...p, version: 3, frames: framesV2toV3(p.frames) })
 };
 function migrateProject(p: Obj & { version: number }): Obj {
   let cur: Obj = p;
@@ -159,7 +176,7 @@ export const toProject = (st: ProjectState): Project => ({
 /** The original vanilla version stored items as { type: 'char' } / { type: 'prop', kind: <prop id> }. Convert to the current file shape. */
 export function fromLegacyFrames(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw;
-  return framesV1toV2(raw.map(f => {
+  return framesV2toV3(framesV1toV2(raw.map(f => {
     if (!isObj(f) || !Array.isArray(f.items)) return f;
     return {
       ...f,
@@ -170,7 +187,7 @@ export function fromLegacyFrames(raw: unknown): unknown {
         return it;
       })
     };
-  }));
+  })));
 }
 
 /* ---------- file names ---------- */

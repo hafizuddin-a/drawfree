@@ -19,7 +19,7 @@ const place = (svg: string, label: string) => {
 await loadBodyArt();
 // every Open Peeps body, with a darker skin and coloured clothes so the colour regions show
 for (const b of BODIES.filter(x => x.kind !== 'rig')) place(charSVG(newCharacter({ body: b.id, skin: '#c68a62', topC: '#4aa8ff', botC: '#ffe08a', shoeC: '#ff9a4d', hair: 'long-curly' })), b.id);
-for (const p of POSES) place(charSVG(newCharacter({ pose: poseFrom(p.t) })), p.id);
+for (const p of POSES) { const c = newCharacter({ id: 'pose-' + p.id }); place(charSVG({ ...c, pose: poseFrom(c, p.t) }), p.id); }
 for (const h of HAIR) place(charSVG(newCharacter({ hair: h.id, hairC: '#c97b4a', skin: '#e9b996' })), 'hair ' + h.id);
 for (const t of TOPS) place(charSVG(newCharacter({ top: t.id, topC: '#ffe08a' })), 'top ' + t.id);
 for (const t of BOTTOMS) place(charSVG(newCharacter({ bottom: t.id, botC: '#141414' })), 'bottom ' + t.id);
