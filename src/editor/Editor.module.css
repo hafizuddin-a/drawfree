@@ -20,8 +20,9 @@
 .tb svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .tb button:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -3px; }
 @media (max-width: 860px) { .stagecell { aspect-ratio: 16 / 9; } }
-/* zoom buttons, top right of the stage */
-.zoom { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; gap: 2px; margin: 0; padding: 2px; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); box-shadow: var(--shadow); min-width: 0; }
+/* zoom buttons, bottom right of the stage: over the floor of every scene, not over heads (on narrow layouts the 16:9
+   stage fills its cell, so a top corner covered the characters) */
+.zoom { position: absolute; bottom: 8px; right: 8px; z-index: 2; display: flex; gap: 2px; margin: 0; padding: 2px; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); box-shadow: var(--shadow); min-width: 0; }
 .zoom button { min-width: 44px; height: 40px; border: 0; border-radius: 20px; background: transparent; font-weight: 700; font-size: 16px; padding: 0 6px; }
 .zoom button:hover:not(:disabled) { background: var(--accent-soft); }
 .zoom button:disabled { opacity: .35; cursor: default; }
