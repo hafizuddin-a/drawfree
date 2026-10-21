@@ -1,5 +1,7 @@
 /* Drawfree data model. Everything the user makes is plain JSON built from these types; SVG is never stored. */
 
+import type { Sketch } from './parts/sketch';
+
 export type Vec = [number, number];
 
 export type PartSlot = 'body' | 'hair' | 'face' | 'glasses' | 'facial';
@@ -71,4 +73,5 @@ export interface PropPart extends PartInfo {
   text?: string;
   draw: (p: PropArgs) => string;
 }
-export interface Scene extends PartInfo { draw: () => string }
+/** a scene draws itself with a sketch (parts/sketch.ts): fills and ink are collected apart, and the ink is drawn soft */
+export interface Scene extends PartInfo { draw: (k: Sketch) => void }
