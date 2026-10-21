@@ -3,13 +3,15 @@ import type { ColorSlot, PartInfo, PartSlot } from '../types';
 import { BOTTOMS, CLOTH, FACE, FACIAL, GLASSES, HAIR, HAIRC, PROPS, SHOES, SKIN, TOPS } from '../parts';
 import { POSES } from '../rig/poses';
 import { BUST_BODIES, SITTING_BODIES, STANDING_BODIES } from '../parts/bodies';
-import { GROUND } from '../rig/renderCharacter';
+import { GROUND, HEAD_DROP, TORSO_DROP } from '../rig/renderCharacter';
 import { SCENES } from '../scenes/scenes';
 import { BGC } from '../scenes/backgrounds';
 import type { TabId } from '../state/store';
 
-// framed for the posable figure's head (HEAD_DROP below the rig's head anchor), which every head thumbnail is drawn on
-const HEADV = '-42 -256 88 88', FACEV = '-28 -236 60 60';
+// Framed for the posable figure, which every thumbnail but a body's is drawn on: its head sits HEAD_DROP and its torso
+// TORSO_DROP below the coordinates the head and top art use. Derived from those constants so the framing follows them.
+// expressions, glasses and facial hair use the whole-head view too: a close-up cut the head off on every side
+const HEADV = `-42 ${-266 + HEAD_DROP} 88 88`, TOPV = `-72 ${-190 + TORSO_DROP} 144 150`;
 
 export type SectionId =
   | 'body' | 'bodySit' | 'bodyBust' | 'hair' | 'hairC' | 'face' | 'skin' | 'top' | 'topC' | 'bottom' | 'botC' | 'shoes' | 'shoeC'
@@ -42,16 +44,16 @@ export const SECS: Record<SectionId, Section> = {
   bodyBust: { id: 'bodyBust', kind: 'part', title: 'Waist up', slot: 'body', list: BUST_BODIES, view: '', viewOf: bodyView },
   hair: { id: 'hair', kind: 'part', title: 'Hairstyles', slot: 'hair', list: HAIR, view: HEADV },
   hairC: { id: 'hairC', kind: 'color', title: 'Hair colour (light styles)', slot: 'hairC', colors: HAIRC },
-  face: { id: 'face', kind: 'part', title: 'Expressions', slot: 'face', list: FACE, view: FACEV },
+  face: { id: 'face', kind: 'part', title: 'Expressions', slot: 'face', list: FACE, view: HEADV },
   skin: { id: 'skin', kind: 'color', title: 'Skin tone', slot: 'skin', colors: SKIN },
-  top: { id: 'top', kind: 'part', title: 'Tops', slot: 'top', list: TOPS, view: '-72 -190 144 150' },
+  top: { id: 'top', kind: 'part', title: 'Tops', slot: 'top', list: TOPS, view: TOPV },
   topC: { id: 'topC', kind: 'color', title: 'Top colour', slot: 'topC', colors: CLOTH },
   bottom: { id: 'bottom', kind: 'part', title: 'Bottoms', slot: 'bottom', list: BOTTOMS, view: '-72 -40 144 240' },
   botC: { id: 'botC', kind: 'color', title: 'Bottom colour', slot: 'botC', colors: CLOTH },
   shoes: { id: 'shoes', kind: 'part', title: 'Shoes', slot: 'shoes', list: SHOES, view: '-62 125 124 80' },
   shoeC: { id: 'shoeC', kind: 'color', title: 'Shoe colour', slot: 'shoeC', colors: CLOTH },
-  glasses: { id: 'glasses', kind: 'part', title: 'Glasses', slot: 'glasses', list: GLASSES, view: FACEV },
-  facial: { id: 'facial', kind: 'part', title: 'Facial hair', slot: 'facial', list: FACIAL, view: FACEV },
+  glasses: { id: 'glasses', kind: 'part', title: 'Glasses', slot: 'glasses', list: GLASSES, view: HEADV },
+  facial: { id: 'facial', kind: 'part', title: 'Facial hair', slot: 'facial', list: FACIAL, view: HEADV },
   hatC: { id: 'hatC', kind: 'color', title: 'Hat and headband colour', slot: 'hatC', colors: CLOTH },
   pose: { id: 'pose', kind: 'pose', title: 'Posable figure', list: POSES, view: '-250 -300 500 500' },
   props: { id: 'props', kind: 'props', title: 'Props', list: PROPS, view: '-125 -200 250 235' },
