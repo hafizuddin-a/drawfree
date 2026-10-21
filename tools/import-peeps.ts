@@ -256,10 +256,56 @@ const ERODE = 14, REGROW = 6;
 
 /** the layers that go over the ink: solid ink recoloured as hair (or hat) */
 function overInk(cat: string, name: string, a: Source): Array<[string, Pt[][]]> {
-  const kind = THICK_INK_AS[`${cat}/${name}`] ?? THICK_INK[cat];
-  if (!kind || !a.inks.length) return [];
+  if (!a.inks.length) return [];
+  if (cat === 'pose/standing' || cat === 'pose/sitting') return garmentInk(cat, name, a);
+  const kind = THICK_INK_AS[`${cat}/${name}`] ?? THICK_INK[cat] ?? (cat === 'body' && !BUST_KEEP_INK.has(name) ? 't' : undefined);
+  if (!kind) return [];
   const r = thickInk(a.width, a.height, a.inks, ERODE, REGROW);
   return r.regions[0].area > 20 ? [[kind, trace(r, [r.regions[0].mask], 0, 2)]] : [];
+}
+
+/* Black garments are solid ink too. A waist-up body's solid ink is its top, except where it is something else. */
+const BUST_KEEP_INK = new Set(['Gaming', 'Blazer Black Tee']);
+/* Full bodies come in families with the same geometry and different dark and light garments (resting-1 has a light
+   top, resting-2 a dark one). The light garment's labelled area in a sibling tells which solid ink in this body is a
+   top, trousers or shoes. */
+const FAMILIES: readonly string[][] = [
+  ['blazer-1', 'blazer-2'], ['blazer-3', 'blazer-4'], ['crossed_arms-1', 'crossed_arms-2'], ['easing-1', 'easing-2'],
+  ['pointing_finger-1', 'pointing_finger-2'], ['resting-1', 'resting-2'], ['robot_dance-1', 'robot_dance-2', 'robot_dance-3'],
+  ['shirt-1', 'shirt-2'], ['shirt-3', 'shirt-4'], ['walking-1', 'walking-2', 'walking-3'],
+  ['closed_legs-1', 'closed_legs-2'], ['hands_back-1', 'hands_back-2'], ['mid-1', 'mid-2'], ['one_leg_up-1', 'one_leg_up-2']
+];
+
+/** the white areas of a body by colour kind (top, bottom, footwear), from its REGIONS labels */
+function kindMasks(cat: string, name: string): Partial<Record<PaintKind, Uint8Array[]>> {
+  const a = atomSource(path.join(ATOMS, cat, name + '.svg')), spec = REGIONS[`${cat}/${name}`];
+  const top: Pt[] = [[-200, -1], [a.width + 200, -1]];
+  const r = segment(a.width, a.height, a.fills, a.inks, [...(spec?.cuts ?? []), top], spec?.close);
+  const kindOf = new Map<number, PaintKind>();
+  for (const k of PAINT) for (const p of spec?.paint[k] ?? []) { const g = regionAt(r, p); if (g) kindOf.set(g.id, k); }
+  const out: Partial<Record<PaintKind, Uint8Array[]>> = {};
+  for (const g of r.regions) {
+    const k = kindOf.get(g.id) ?? spec?.rest ?? 't';
+    (out[k] ??= []).push(g.mask);
+  }
+  return out;
+}
+
+function garmentInk(cat: string, name: string, a: Source): Array<[string, Pt[][]]> {
+  const fam = FAMILIES.find(f => f.includes(name));
+  if (!fam) return [];
+  const ink = thickInk(a.width, a.height, a.inks, ERODE, REGROW), solid = ink.regions[0].mask;
+  const out: Array<[string, Pt[][]]> = [];
+  const sibs = fam.filter(n => n !== name).map(n => kindMasks(cat, n));
+  for (const k of ['t', 'b', 'f'] as const) {
+    const area = new Uint8Array(solid.length);
+    for (const m of sibs.flatMap(s => s[k] ?? [])) for (let i = 0; i < m.length; i++) if (m[i]) area[i] = 1;
+    let n = 0;
+    const mask = new Uint8Array(solid.length);
+    for (let i = 0; i < solid.length; i++) if (solid[i] && area[i]) { mask[i] = 1; n++; }
+    if (n > 400) out.push([k, trace(ink, [mask], 0, 2)]);
+  }
+  return out;
 }
 
 function colourLayers(cat: string, name: string, a: Source): Array<[string, Pt[][]]> {
