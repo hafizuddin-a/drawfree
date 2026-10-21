@@ -1,7 +1,7 @@
 // Pre-deploy check on the built site and the source rules from the spec. usage: node tools/check.js (after `vite build`)
 //  - dist is complete and every asset index.html points at exists
 //  - JS + CSS is under the size budget (gzipped, fonts excluded)
-//  - src/parts, src/rig, src/scenes import no React and touch no DOM, so they stay testable in Node
+//  - src/parts, src/rig, src/scenes, src/art import no React and touch no DOM, so they stay testable in Node
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -48,7 +48,7 @@ const rel = f => path.relative(root, f);
 // drop comments and string contents so words in prose or text do not count
 const code = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1').replace(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g, '""');
 const ts = [...walk(path.join(root, 'src')), ...walk(path.join(root, 'tools'))].filter(f => /\.tsx?$/.test(f));
-const PURE = ['src/parts', 'src/rig', 'src/scenes'].map(d => path.join(root, d));
+const PURE = ['src/parts', 'src/rig', 'src/scenes', 'src/art'].map(d => path.join(root, d));
 const DOM = /(\bfrom\s+['"]react|\bdocument\b|\bwindow\b|\bnavigator\b|\blocalStorage\b|\bnew\s+Image\b|\bDOMParser\b|\bHTML\w*Element\b|\bSVG\w*Element\b)/;
 for (const f of ts.filter(f => PURE.some(d => f.startsWith(d)) && !/\.test\.tsx?$/.test(f))) {
   const m = code(fs.readFileSync(f, 'utf8')).match(DOM);
