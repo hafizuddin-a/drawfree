@@ -1,5 +1,7 @@
 # Drawfree
 
+**Abandoned (founder, Oct 2026).** The site is offline: both Cloudflare Workers were deleted by the Teardown workflow, the deploy and preview jobs are gone, and the repo is archived. What follows describes the code as it was left.
+
 Storyboards you drag, not draw. A browser tool for building storyboard frames from full-body characters in the Open Peeps style. Users pick a body in the pose they need (standing, sitting, waist up), swap hair, faces and glasses, recolour skin, hair and clothes, flip a character to face left or right, and move, scale and rotate it. No drawing skill needed.
 
 Stack: Vite, React 18, TypeScript (strict), Zustand. Static site on Cloudflare Workers. No accounts, free forever, no watermark.
