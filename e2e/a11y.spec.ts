@@ -18,7 +18,7 @@ test('with a character selected and the toolbar showing', async ({ page }) => {
   await selectFirstChar(page);
   expect(await violations(page)).toEqual([]);
 });
-for (const tab of ['Body', 'Face', 'Clothes', 'Extras', 'Props', 'Scene']) {
+for (const tab of ['Body', 'Tops', 'Face', 'Clothes', 'Extras', 'Props', 'Scene']) {
   test(`the picker, ${tab} tab`, async ({ page }) => {
     await page.getByRole('tab', { name: tab }).click();
     expect(await violations(page)).toEqual([]);

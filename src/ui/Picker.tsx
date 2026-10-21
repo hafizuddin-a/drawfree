@@ -106,6 +106,7 @@ export function Picker() {
       <>
         {!base && tab !== 'props' && tab !== 'scene' && <p className={styles.hint}>Click a character on the board to dress it.</p>}
         {tab === 'body' && <p className={styles.hint}>Each body comes in its own pose. Pick the one closest to the moment; Flip turns it to face the other way.</p>}
+        {tab === 'tops' && <p className={styles.hint}>Waist-up characters, cropped at the chest: good for close-ups and conversations. Colours are in the Clothes tab.</p>}
         {tab === 'props' && sel && sel.kind === 'prop' && sel.prop === 'bubble' && <BubbleText text={sel.text ?? ''} />}
         {cur.secs.map(id => {
           const sec = SECS[id];

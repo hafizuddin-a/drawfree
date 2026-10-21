@@ -41,7 +41,7 @@ function bodyView(id: string): string {
 export const SECS: Record<SectionId, Section> = {
   body: { id: 'body', kind: 'part', title: 'Standing', slot: 'body', list: STANDING_BODIES, view: '', viewOf: bodyView },
   bodySit: { id: 'bodySit', kind: 'part', title: 'Sitting', slot: 'body', list: SITTING_BODIES, view: '', viewOf: bodyView },
-  bodyBust: { id: 'bodyBust', kind: 'part', title: 'Waist up', slot: 'body', list: BUST_BODIES, view: '', viewOf: bodyView },
+  bodyBust: { id: 'bodyBust', kind: 'part', title: 'Waist-up tops', slot: 'body', list: BUST_BODIES, view: '', viewOf: bodyView },
   hair: { id: 'hair', kind: 'part', title: 'Hairstyles', slot: 'hair', list: HAIR, view: HEADV },
   hairC: { id: 'hairC', kind: 'color', title: 'Hair colour', slot: 'hairC', colors: HAIRC },
   face: { id: 'face', kind: 'part', title: 'Expressions', slot: 'face', list: FACE, view: HEADV },
@@ -58,7 +58,8 @@ export const SECS: Record<SectionId, Section> = {
 };
 
 export const TABS: ReadonlyArray<{ id: TabId; label: string; secs: readonly SectionId[] }> = [
-  { id: 'body', label: 'Body', secs: ['body', 'bodySit', 'bodyBust'] },
+  { id: 'body', label: 'Body', secs: ['body', 'bodySit'] },
+  { id: 'tops', label: 'Tops', secs: ['bodyBust'] },
   { id: 'hair', label: 'Hair', secs: ['hair', 'hairC', 'hatC'] },
   { id: 'face', label: 'Face', secs: ['face', 'skin'] },
   { id: 'clothes', label: 'Clothes', secs: ['topC', 'botC', 'shoeC'] },
