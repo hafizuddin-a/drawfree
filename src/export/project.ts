@@ -100,7 +100,6 @@ const V2_HAT: Record<string, string> = { beanie: 'hat-beanie', cap: 'hat-hip', b
 const V2_FACE: Record<string, string> = { smile: 'smile', neutral: 'blank', grin: 'smile-big', wink: 'cute', surprised: 'awe', sleepy: 'tired' };
 const V2_GLASSES: Record<string, string> = { none: 'none', round: 'glasses', square: 'glasses-3', shades: 'sunglasses' };
 const V2_FACIAL: Record<string, string> = { none: 'none', stache: 'moustache-1', beard: 'full', goatee: 'goatee-1' };
-const dark = (c: unknown): boolean => isHex(c) && parseInt(c.slice(1, 3), 16) + parseInt(c.slice(3, 5), 16) + parseInt(c.slice(5, 7), 16) < 300;
 
 /** A version 1 character in the version 2 shape. Unknown ids pass through for cleanItem to repair. */
 function itemV1toV2(it: unknown): unknown {
@@ -109,8 +108,6 @@ function itemV1toV2(it: unknown): unknown {
   const pick = (m: Record<string, string>, v: unknown) => (typeof v === 'string' && v in m ? m[v] : v);
   const out: Obj = { ...c, hair: pick(V2_HAIR, c.hair), face: pick(V2_FACE, c.face), glasses: pick(V2_GLASSES, c.glasses), facial: pick(V2_FACIAL, c.facial) };
   if (typeof hat === 'string' && hat in V2_HAT) out.hair = V2_HAT[hat];
-  // dark hair is ink now; the hair colour only tints light styles, where near-black would hide the strands
-  if (dark(c.hairC)) out.hairC = '#e0b95a';
   return out;
 }
 /** frames of a version 1 project (or the vanilla shape, after fromLegacyFrames) in the version 2 shape */

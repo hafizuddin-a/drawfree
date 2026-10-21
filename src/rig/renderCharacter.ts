@@ -18,7 +18,7 @@ const bodyOf = lookup(BODIES), topOf = lookup(TOPS), bottomOf = lookup(BOTTOMS),
 export function newCharacter(o: Partial<Character> = {}): Character {
   return {
     id: 'char', kind: 'char', x: 480, y: 300, s: 0.8, r: 0, flip: false, body: 'rig',
-    skin: '#ffffff', hair: 'short-1', hairC: '#e0b95a', face: 'smile',
+    skin: '#ffffff', hair: 'short-1', hairC: '#141414', face: 'smile',
     top: 'tee', topC: '#ffffff', bottom: 'jeans', botC: '#cfe8ff', shoes: 'sneaker', shoeC: '#ffffff',
     glasses: 'none', facial: 'none', hatC: '#4aa8ff',
     pose: poseFrom(T_IDLE),
