@@ -286,7 +286,9 @@ function kindMasks(cat: string, name: string): Partial<Record<PaintKind, Uint8Ar
   const out: Partial<Record<PaintKind, Uint8Array[]>> = {};
   for (const g of r.regions) {
     const k = kindOf.get(g.id) ?? spec?.rest ?? 't';
-    (out[k] ??= []).push(g.mask);
+    const list = out[k] ?? [];
+    list.push(g.mask);
+    out[k] = list;
   }
   return out;
 }
